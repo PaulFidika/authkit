@@ -1,12 +1,14 @@
 package authgin
 
 import (
+	"log"
 	"time"
 
 	"github.com/PaulFidika/authkit/adapters/gin/handlers"
 	"github.com/PaulFidika/authkit/adapters/ginutil"
 	core "github.com/PaulFidika/authkit/core"
 	oidckit "github.com/PaulFidika/authkit/oidc"
+	memorylimiter "github.com/PaulFidika/authkit/ratelimit/memory"
 	redisl "github.com/PaulFidika/authkit/ratelimit/redis"
 	memorystore "github.com/PaulFidika/authkit/storage/memory"
 	redisstore "github.com/PaulFidika/authkit/storage/redis"
@@ -185,15 +187,55 @@ func (s *Service) ensureLimiter() ginutil.RateLimiter {
 	if s.rl != nil {
 		return s.rl
 	}
-	if s.rd == nil {
-		return nil
+	if s.rd != nil {
+		return redisl.New(s.rd, defaultLimits())
 	}
-	return redisl.New(s.rd, defaultLimits())
+	// Fallback: in-memory rate limiter for single-node deployments when Redis
+	// is unavailable. This provides basic protection without cross-node sharing.
+	log.Printf("authkit: Redis client not configured; using in-memory rate limiter (single-node only)")
+	return memorylimiter.New(defaultMemoryLimits())
 }
 
 // defaultLimits provides sensible default rate limits for auth endpoints.
 func defaultLimits() map[string]redisl.Limit {
 	return map[string]redisl.Limit{
+		"default":                            {Limit: 120, Window: time.Minute},
+		ginutil.RLAuthToken:                  {Limit: 30, Window: time.Minute},
+		ginutil.RLAuthRegister:               {Limit: 10, Window: time.Hour},
+		ginutil.RLAuthRegisterResendEmail:    {Limit: 6, Window: 10 * time.Minute},
+		ginutil.RLAuthRegisterResendPhone:    {Limit: 6, Window: 10 * time.Minute},
+		ginutil.RLAuthLogout:                 {Limit: 60, Window: 10 * time.Minute},
+		ginutil.RLPasswordLogin:              {Limit: 20, Window: time.Hour},
+		ginutil.RLPasswordResetRequest:       {Limit: 6, Window: 10 * time.Minute},
+		ginutil.RLPasswordResetConfirm:       {Limit: 10, Window: 10 * time.Minute},
+		ginutil.RLEmailVerifyRequest:         {Limit: 6, Window: 10 * time.Minute},
+		ginutil.RLEmailVerifyConfirm:         {Limit: 10, Window: 10 * time.Minute},
+		ginutil.RLAuthSessionsCurrent:        {Limit: 60, Window: 10 * time.Minute},
+		ginutil.RLAuthSessionsList:           {Limit: 120, Window: time.Minute},
+		ginutil.RLAuthSessionsRevoke:         {Limit: 60, Window: 10 * time.Minute},
+		ginutil.RLAuthSessionsRevokeAll:      {Limit: 20, Window: time.Hour},
+		ginutil.RLOIDCStart:                  {Limit: 30, Window: 10 * time.Minute},
+		ginutil.RLOIDCCallback:               {Limit: 60, Window: 10 * time.Minute},
+		ginutil.RLUserMe:                     {Limit: 120, Window: time.Minute},
+		ginutil.RLUserUpdateUsername:         {Limit: 12, Window: time.Hour},
+		ginutil.RLUserUpdateEmail:            {Limit: 12, Window: time.Hour},
+		ginutil.RLUserEmailChangeRequest:     {Limit: 6, Window: time.Hour},
+		ginutil.RLUserEmailChangeConfirm:     {Limit: 10, Window: 10 * time.Minute},
+		ginutil.RLUserEmailChangeResend:      {Limit: 6, Window: 10 * time.Minute},
+		ginutil.RLUserDelete:                 {Limit: 6, Window: time.Hour},
+		ginutil.RLUserUnlinkProvider:         {Limit: 12, Window: time.Hour},
+		ginutil.RLUserPasswordChange:         {Limit: 6, Window: time.Hour},
+		ginutil.RLAdminRolesGrant:            {Limit: 30, Window: time.Hour},
+		ginutil.RLAdminRolesRevoke:           {Limit: 30, Window: time.Hour},
+		ginutil.RLAdminUserSessionsList:      {Limit: 600, Window: time.Hour},
+		ginutil.RLAdminUserSessionsRevoke:    {Limit: 60, Window: time.Hour},
+		ginutil.RLAdminUserSessionsRevokeAll: {Limit: 30, Window: time.Hour},
+	}
+}
+
+// defaultMemoryLimits mirrors defaultLimits but for the in-memory limiter type.
+func defaultMemoryLimits() map[string]memorylimiter.Limit {
+	return map[string]memorylimiter.Limit{
 		"default":                            {Limit: 120, Window: time.Minute},
 		ginutil.RLAuthToken:                  {Limit: 30, Window: time.Minute},
 		ginutil.RLAuthRegister:               {Limit: 10, Window: time.Hour},

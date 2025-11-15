@@ -321,7 +321,8 @@ func errOrUnauthorized(err error) error {
 
 // ChangePassword sets or changes a user's password.
 // If the user already has a password, current must verify; otherwise current is ignored.
-// Always Argon2id-hashes the new password and upserts it. Revokes other sessions; caller may keep one via keepSessionID.
+// Always Argon2id-hashes the new password and upserts it, then revokes all
+// other sessions for the user; caller may keep one active session via keepSessionID.
 func (s *Service) ChangePassword(ctx context.Context, userID, current, new string, keepSessionID *string) error {
 	if s.pg == nil {
 		return jwt.ErrTokenUnverifiable
@@ -365,7 +366,12 @@ func (s *Service) ChangePassword(ctx context.Context, userID, current, new strin
 	if err := s.upsertPasswordHash(ctx, userID, phc, "argon2id", nil); err != nil {
 		return err
 	}
-	// Do not revoke existing sessions on password change per host policy.
+	// Revoke all other sessions after a successful password change to ensure that
+	// any previously compromised refresh tokens are invalidated. The current
+	// session can be preserved via keepSessionID if provided.
+	if err := s.RevokeAllSessions(ctx, userID, keepSessionID); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -163,12 +163,35 @@ func NewAutoKeySource() (KeySource, error) {
 		return keySource, nil
 	}
 
-	// Priority 3: Auto-generate for development (lowest priority)
+	// Priority 3: Auto-generate for development (lowest priority).
+	// In production environments, auto-generation is disabled and an error is returned
+	// so that services cannot start without explicitly provisioned keys.
+	if isProdEnv() {
+		return nil, fmt.Errorf("no JWT keys found in env or %s and auto-generation is disabled in production; set ACTIVE_KEY_ID/ACTIVE_PRIVATE_KEY_PEM or mount keys.json", DefaultAuthKeysPath)
+	}
+
 	keySource, err := NewGeneratedKeySource()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate development keys: %w", err)
 	}
 	return keySource, nil
+}
+
+// isProdEnv returns true if the current process appears to be running in a
+// production environment based on common environment variables.
+// It mirrors the ENV detection commonly used by services:
+//
+//	ENV, APP_ENV, or ENVIRONMENT (case-insensitive).
+func isProdEnv() bool {
+	env := strings.TrimSpace(os.Getenv("ENV"))
+	if env == "" {
+		env = strings.TrimSpace(os.Getenv("APP_ENV"))
+	}
+	if env == "" {
+		env = strings.TrimSpace(os.Getenv("ENVIRONMENT"))
+	}
+	env = strings.ToLower(env)
+	return env == "production" || env == "prod"
 }
 
 // tryLoadFromEnv attempts to load JWT keys from environment variables.
