@@ -299,7 +299,9 @@ Two-Factor Authentication (2FA):
 - 2FA codes expire in **15 minutes**.
 
 Operation:
-- To rotate keys for JWKS: add the new public key to the map under a new kid, switch the active signer, leave the old pub in the map until tokens expire, then remove it.
+- Key rotation is outside the scope of this library and should be handled by your infrastructure (e.g., External Secrets Operator updating mounted secrets, then restarting pods).
+- To rotate keys manually: add the new public key to the map under a new kid, switch the active signer, leave the old pub in the map until tokens expire, then remove it.
+- For local development, AuthKit auto-generates keys in `.runtime/authkit/` (disabled in production).
 
 Integration requirements (API server)
 - Rate limiting: if you provide Redis via `WithRedis`, AuthKit enables a default Redis-backed rate limiter automatically.
