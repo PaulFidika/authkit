@@ -10,6 +10,7 @@ import (
 	oidckit "github.com/PaulFidika/authkit/oidc"
 	memorylimiter "github.com/PaulFidika/authkit/ratelimit/memory"
 	redisl "github.com/PaulFidika/authkit/ratelimit/redis"
+	"github.com/PaulFidika/authkit/siws"
 	memorystore "github.com/PaulFidika/authkit/storage/memory"
 	redisstore "github.com/PaulFidika/authkit/storage/redis"
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,7 @@ type Service struct {
 	rd            *redis.Client
 	rl            ginutil.RateLimiter
 	oidcProviders map[string]oidckit.RPConfig
+	solanaDomain  string // Domain for SIWS messages (optional, derived from request if empty)
 }
 
 // NewService constructs a core.Service and wraps it for HTTP mounting.
@@ -57,6 +59,13 @@ func (s *Service) WithSMSSender(sender core.SMSSender) *Service {
 // WithAuthLogger wires a custom authentication event logger (e.g., ClickHouse sink).
 func (s *Service) WithAuthLogger(l core.AuthEventLogger) *Service {
 	s.svc = s.svc.WithAuthLogger(l)
+	return s
+}
+
+// WithSolanaDomain sets the domain used in SIWS sign-in messages.
+// If not set, the domain is derived from the request Origin or Host header.
+func (s *Service) WithSolanaDomain(domain string) *Service {
+	s.solanaDomain = domain
 	return s
 }
 
@@ -166,6 +175,15 @@ func (s *Service) GinRegisterAPI(api gin.IRouter) *Service {
 	admin.DELETE("/users/:user_id", handlers.HandleAdminUserDeleteDELETE(s.svc, rl))
 	admin.GET("/users/:user_id/signins", handlers.HandleAdminUserSigninsGET(s.svc, rl))
 
+	// Solana SIWS authentication routes
+	siwsCfg := handlers.SIWSConfig{
+		Cache:  s.siwsCache(),
+		Domain: s.solanaDomain,
+	}
+	api.POST("/auth/solana/challenge", handlers.HandleSolanaChallengePost(siwsCfg, s.svc, rl))
+	api.POST("/auth/solana/login", handlers.HandleSolanaLoginPost(siwsCfg, s.svc, rl))
+	api.POST("/auth/solana/link", auth.Required(), handlers.HandleSolanaLinkPost(siwsCfg, s.svc, rl))
+
 	return s
 }
 
@@ -181,6 +199,13 @@ func (s *Service) stateCache() oidckit.StateCache {
 		return redisstore.NewStateCache(s.rd, "auth:oidc:state:", 0)
 	}
 	return memorystore.NewStateCache(15 * time.Minute)
+}
+
+func (s *Service) siwsCache() siws.ChallengeCache {
+	if s.rd != nil {
+		return redisstore.NewSIWSCache(s.rd, "auth:siws:nonce:", 15*time.Minute)
+	}
+	return memorystore.NewSIWSCache(15 * time.Minute)
 }
 
 func (s *Service) ensureLimiter() ginutil.RateLimiter {
@@ -230,6 +255,10 @@ func defaultLimits() map[string]redisl.Limit {
 		ginutil.RLAdminUserSessionsList:      {Limit: 600, Window: time.Hour},
 		ginutil.RLAdminUserSessionsRevoke:    {Limit: 60, Window: time.Hour},
 		ginutil.RLAdminUserSessionsRevokeAll: {Limit: 30, Window: time.Hour},
+		// Solana SIWS
+		ginutil.RLSolanaChallenge: {Limit: 30, Window: 10 * time.Minute},
+		ginutil.RLSolanaLogin:     {Limit: 20, Window: 10 * time.Minute},
+		ginutil.RLSolanaLink:      {Limit: 12, Window: time.Hour},
 	}
 }
 
@@ -267,5 +296,9 @@ func defaultMemoryLimits() map[string]memorylimiter.Limit {
 		ginutil.RLAdminUserSessionsList:      {Limit: 600, Window: time.Hour},
 		ginutil.RLAdminUserSessionsRevoke:    {Limit: 60, Window: time.Hour},
 		ginutil.RLAdminUserSessionsRevokeAll: {Limit: 30, Window: time.Hour},
+		// Solana SIWS
+		ginutil.RLSolanaChallenge: {Limit: 30, Window: 10 * time.Minute},
+		ginutil.RLSolanaLogin:     {Limit: 20, Window: 10 * time.Minute},
+		ginutil.RLSolanaLink:      {Limit: 12, Window: time.Hour},
 	}
 }

@@ -6,11 +6,13 @@ Scope (minimal)
 - Asymmetric JWT issuing (RS256) + JWKS endpoint (no persistence yet).
 - Password login and email-based password reset tokens.
 - OIDC RP (OAuth2/OIDC) with PKCE (Redis or in-memory for ephemeral state; no DB table).
+- Solana wallet authentication (SIWS - Sign In With Solana).
 - Storage with Postgres/Redis.
 
 Packages
 - jwt: minimal key management, signer, JWKS helper.
 - oidc: client (RP) types; implementation to follow.
+- siws: Sign In With Solana - Ed25519 signature verification for Solana wallets.
 - storage: minimal interfaces for users, passwords, providers, resets, roles, revocations.
 - migrations: embedded SQL defining the `profiles` schema and minimal tables.
 
@@ -91,7 +93,8 @@ Quick Start (Gin)
           WithPostgres(pg).
           WithRedis(redisClient).
           WithEmailSender(emailSender).
-          WithSMSSender(twilioSMS)
+          WithSMSSender(twilioSMS).
+          WithSolanaDomain("myapp.com") // Optional: for SIWS sign-in messages
 
       // Split registration: JWKS at root, browser flows at /auth, JSON API under /api/v1
       api := r.Group("/api/v1")
@@ -373,6 +376,10 @@ Endpoints mounted automatically:
   - POST /auth/admin/users/set-username
   - DELETE /auth/admin/users/:user_id
   - GET /auth/admin/users/:user_id/signins
+- Solana wallet authentication (SIWS):
+  - POST /auth/solana/challenge → {domain, address, nonce, issuedAt, expirationTime, ...}
+  - POST /auth/solana/login → {access_token, refresh_token, user}
+  - POST /auth/solana/link (requires auth) → {success, solana_address}
 
 ---
 
@@ -438,6 +445,100 @@ Frontend (React) quick guide
   - PATCH /auth/user/biography with `{biography}` (Authorization)
   - POST /auth/user/password with `{old_password, new_password}` (Authorization)
   - DELETE /auth/user (Authorization) → deletes account
+- Solana Wallet (SIWS)
+  - Login/Register: POST /auth/solana/challenge → wallet.signIn(input) → POST /auth/solana/login
+  - Link wallet: POST /auth/solana/challenge → wallet.signIn(input) → POST /auth/solana/link (with Authorization)
+
+---
+
+### Solana Wallet Authentication (SIWS)
+
+Sign In With Solana allows users to authenticate using their Solana wallet (Phantom, Solflare, Backpack, etc.).
+Users can create accounts with just a wallet (no email/password required) or link a wallet to an existing account.
+
+**Frontend Integration (React/TypeScript):**
+
+```typescript
+import { useWallet } from '@solana/wallet-adapter-react';
+
+// 1. Request challenge from backend
+const requestChallenge = async (address: string, username?: string) => {
+  const response = await fetch('/api/v1/auth/solana/challenge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address, username }), // username optional for new accounts
+  });
+  return response.json(); // Returns SignInInput
+};
+
+// 2. Sign with wallet
+const signIn = async () => {
+  const { publicKey, signIn } = useWallet();
+  if (!publicKey || !signIn) return;
+
+  // Get challenge from backend
+  const input = await requestChallenge(publicKey.toBase58(), 'desired_username');
+
+  // Wallet prompts user to sign
+  const output = await signIn(input);
+
+  // 3. Verify signature and get tokens
+  const response = await fetch('/api/v1/auth/solana/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      output: {
+        account: { address: output.account.address },
+        signature: btoa(String.fromCharCode(...output.signature)),
+        signedMessage: btoa(String.fromCharCode(...output.signedMessage)),
+      },
+    }),
+  });
+
+  const { access_token, refresh_token, user } = await response.json();
+  // Store tokens as usual
+};
+```
+
+**Link wallet to existing account:**
+
+```typescript
+const linkWallet = async (accessToken: string) => {
+  const { publicKey, signIn } = useWallet();
+  if (!publicKey || !signIn) return;
+
+  // Get challenge
+  const input = await requestChallenge(publicKey.toBase58());
+
+  // Sign
+  const output = await signIn(input);
+
+  // Link (requires auth)
+  const response = await fetch('/api/v1/auth/solana/link', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      output: {
+        account: { address: output.account.address },
+        signature: btoa(String.fromCharCode(...output.signature)),
+        signedMessage: btoa(String.fromCharCode(...output.signedMessage)),
+      },
+    }),
+  });
+
+  return response.json(); // { success: true, solana_address: "..." }
+};
+```
+
+**Notes:**
+- Challenges expire in 15 minutes
+- Username is optional - if not provided, a username is derived from the wallet address (e.g., `u_7xKX`)
+- Users can change their username later via `PATCH /auth/user/username`
+- Wallet address is stored as a provider link (like Google/Discord) in `profiles.user_providers`
+- One wallet per user, one user per wallet
 
 ---
 

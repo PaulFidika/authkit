@@ -50,6 +50,11 @@ const (
 	RLAdminUserSessionsList      = "auth_admin_user_sessions_list"
 	RLAdminUserSessionsRevoke    = "auth_admin_user_sessions_revoke"
 	RLAdminUserSessionsRevokeAll = "auth_admin_user_sessions_revoke_all"
+
+	// Solana SIWS authentication
+	RLSolanaChallenge = "auth_solana_challenge"
+	RLSolanaLogin     = "auth_solana_login"
+	RLSolanaLink      = "auth_solana_link"
 )
 
 // AllowNamed applies a per-IP limit using the provided bucket name.
