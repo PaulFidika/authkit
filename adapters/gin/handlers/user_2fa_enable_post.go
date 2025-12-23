@@ -10,7 +10,8 @@ import (
 )
 
 type enable2FARequest struct {
-	Method      string  `json:"method"`       // "email" or "sms"
+	Method      string  `json:"method"`
+	Code        string  `json:"code,omitempty"`
 	PhoneNumber *string `json:"phone_number"` // Required if method="sms"
 }
 
@@ -23,10 +24,12 @@ type enable2FAResponse struct {
 // HandleUser2FAEnablePOST enables 2FA for the current user
 func HandleUser2FAEnablePOST(svc core.Provider, rl ginutil.RateLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		if !ginutil.AllowNamed(c, rl, ginutil.RLUserPasswordChange) {
 			ginutil.TooMany(c)
 			return
 		}
+
 		uid := c.GetString("auth.user_id")
 		if uid == "" {
 			ginutil.Unauthorized(c, "unauthorized")
@@ -46,22 +49,31 @@ func HandleUser2FAEnablePOST(svc core.Provider, rl ginutil.RateLimiter) gin.Hand
 			return
 		}
 
-		// Validate phone number if method is SMS
 		if method == "sms" {
-			if req.PhoneNumber == nil || strings.TrimSpace(*req.PhoneNumber) == "" {
-				ginutil.BadRequest(c, "phone_number_required")
+
+			if req.PhoneNumber == nil || *req.PhoneNumber == "" || req.Code == "" {
+				ginutil.BadRequest(c, "phone_and_code_required")
 				return
 			}
-			// Ensure it's in E.164 format (starts with +)
+
+			// Validate phone number if method is SMS
 			phoneNum := strings.TrimSpace(*req.PhoneNumber)
 			if !strings.HasPrefix(phoneNum, "+") {
 				ginutil.BadRequest(c, "phone_number_must_be_e164")
 				return
 			}
+
+			// Validate code
+			valid, err := svc.VerifyPhone2FASetupCode(c.Request.Context(), uid, *req.PhoneNumber, req.Code)
+			if err != nil || !valid {
+				ginutil.Unauthorized(c, "invalid_code")
+				return
+			}
 		}
 
-		// Enable 2FA and generate backup codes
-		backupCodes, err := svc.Enable2FA(c.Request.Context(), uid, method, req.PhoneNumber)
+		// Enable 2FA
+		backupCodes, err := svc.Enable2FA(c.Request.Context(), uid, req.Method, req.PhoneNumber)
+
 		if err != nil {
 			ginutil.ServerErrWithLog(c, "enable_2fa_failed", err, "failed to enable 2fa for user")
 			return

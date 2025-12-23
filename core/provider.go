@@ -29,6 +29,9 @@ type Verifier interface {
 // It is implemented by *Service and is intended as the template-friendly
 // integration boundary for applications.
 type Provider interface {
+	// 2FA phone setup
+	SendPhone2FASetupCode(ctx context.Context, userID, phone, code string) error
+	VerifyPhone2FASetupCode(ctx context.Context, userID, phone, code string) (bool, error)
 	Verifier
 
 	// Token/session minting
