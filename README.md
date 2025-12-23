@@ -362,7 +362,8 @@ Endpoints mounted automatically:
   - DELETE /auth/user/providers/:provider (requires auth)
 - Two-Factor Authentication (2FA):
   - GET /auth/user/2fa (requires auth) → {enabled, method, phone_number}
-  - POST /auth/user/2fa/enable (requires auth) → {enabled, method, backup_codes}
+  - POST /auth/user/2fa/start-phone (requires auth) → starts phone 2FA setup, sends code to phone
+  - POST /auth/user/2fa/enable (requires auth) →  → {enabled, method, backup_codes}
   - POST /auth/user/2fa/disable (requires auth)
   - POST /auth/user/2fa/regenerate-codes (requires auth) → {backup_codes}
   - POST /auth/2fa/verify (during login) → {access_token, refresh_token}

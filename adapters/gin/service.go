@@ -177,6 +177,8 @@ func (s *Service) GinRegisterAPI(api gin.IRouter) *Service {
 
 	// Two-Factor Authentication routes
 	api.GET("/auth/user/2fa", auth.Required(), handlers.HandleUser2FAStatusGET(s.svc, rl))
+
+	api.POST("/auth/user/2fa/start-phone", auth.Required(), auth.RequireAdmin(s.svc.Postgres()), handlers.HandleUser2FAStartPhonePOST(s.svc, rl))
 	api.POST("/auth/user/2fa/enable", auth.Required(), handlers.HandleUser2FAEnablePOST(s.svc, rl))
 	api.POST("/auth/user/2fa/disable", auth.Required(), handlers.HandleUser2FADisablePOST(s.svc, rl))
 	api.POST("/auth/user/2fa/regenerate-codes", auth.Required(), handlers.HandleUser2FARegenerateCodesPOST(s.svc, rl))
@@ -243,8 +245,15 @@ func (s *Service) ensureLimiter() ginutil.RateLimiter {
 
 // defaultLimits provides sensible default rate limits for auth endpoints.
 func defaultLimits() map[string]redisl.Limit {
+
 	return map[string]redisl.Limit{
-		"default":                            {Limit: 120, Window: time.Minute},
+		"default": {Limit: 120, Window: time.Minute},
+		// 2FA-specific
+		ginutil.RL2FAStartPhone:              {Limit: 3, Window: 10 * time.Minute},  // 3 requests per 10 min (SMS is costly)
+		ginutil.RL2FAEnable:                  {Limit: 6, Window: time.Hour},         // 6 enable attempts per hour
+		ginutil.RL2FADisable:                 {Limit: 6, Window: time.Hour},         // 6 disable attempts per hour
+		ginutil.RL2FARegenerateCodes:         {Limit: 3, Window: time.Hour},         // 3 regenerations per hour
+		ginutil.RL2FAVerify:                  {Limit: 10, Window: 10 * time.Minute}, // 10 verifications per 10 min
 		ginutil.RLAuthToken:                  {Limit: 30, Window: time.Minute},
 		ginutil.RLAuthRegister:               {Limit: 10, Window: time.Hour},
 		ginutil.RLAuthRegisterResendEmail:    {Limit: 6, Window: 10 * time.Minute},
@@ -286,7 +295,14 @@ func defaultLimits() map[string]redisl.Limit {
 // defaultMemoryLimits mirrors defaultLimits but for the in-memory limiter type.
 func defaultMemoryLimits() map[string]memorylimiter.Limit {
 	return map[string]memorylimiter.Limit{
-		"default":                            {Limit: 120, Window: time.Minute},
+		"default": {Limit: 120, Window: time.Minute},
+		// 2FA-specific
+		ginutil.RL2FAStartPhone:      {Limit: 3, Window: 10 * time.Minute},  // 3 requests per 10 min (SMS is costly)
+		ginutil.RL2FAEnable:          {Limit: 6, Window: time.Hour},         // 6 enable attempts per hour
+		ginutil.RL2FADisable:         {Limit: 6, Window: time.Hour},         // 6 disable attempts per hour
+		ginutil.RL2FARegenerateCodes: {Limit: 3, Window: time.Hour},         // 3 regenerations per hour
+		ginutil.RL2FAVerify:          {Limit: 10, Window: 10 * time.Minute}, // 10 verifications per 10 min
+
 		ginutil.RLAuthToken:                  {Limit: 30, Window: time.Minute},
 		ginutil.RLAuthRegister:               {Limit: 10, Window: time.Hour},
 		ginutil.RLAuthRegisterResendEmail:    {Limit: 6, Window: 10 * time.Minute},

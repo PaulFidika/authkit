@@ -21,6 +21,12 @@ type RateLimiter interface {
 
 // Bucket names used by authkit endpoints.
 const (
+	// 2FA-specific rate limit buckets
+	RL2FAStartPhone              = "auth_2fa_start_phone"
+	RL2FAEnable                  = "auth_2fa_enable"
+	RL2FADisable                 = "auth_2fa_disable"
+	RL2FARegenerateCodes         = "auth_2fa_regenerate_codes"
+	RL2FAVerify                  = "auth_2fa_verify"
 	RLAuthToken                  = "auth_token"
 	RLAuthRegister               = "auth_register"
 	RLAuthRegisterResendEmail    = "auth_register_resend_email"

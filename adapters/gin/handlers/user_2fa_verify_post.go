@@ -26,7 +26,7 @@ type verify2FAResponse struct {
 // HandleUser2FAVerifyPOST verifies a 2FA code during login and issues tokens
 func HandleUser2FAVerifyPOST(svc core.Provider, rl ginutil.RateLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !ginutil.AllowNamed(c, rl, ginutil.RLPasswordLogin) {
+		if !ginutil.AllowNamed(c, rl, ginutil.RL2FAVerify) {
 			ginutil.TooMany(c)
 			return
 		}
