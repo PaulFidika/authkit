@@ -23,7 +23,7 @@ type start2FAPhoneResponse struct {
 // HandleUser2FAStartPhonePOST generates and sends a 6-digit code to the user's phone for 2FA setup
 func HandleUser2FAStartPhonePOST(svc core.Provider, rl ginutil.RateLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !ginutil.AllowNamed(c, rl, ginutil.RLPasswordLogin) {
+		if !ginutil.AllowNamed(c, rl, ginutil.RL2FAStartPhone) {
 			ginutil.TooMany(c)
 			return
 		}

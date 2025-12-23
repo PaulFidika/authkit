@@ -25,7 +25,7 @@ type enable2FAResponse struct {
 func HandleUser2FAEnablePOST(svc core.Provider, rl ginutil.RateLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		if !ginutil.AllowNamed(c, rl, ginutil.RLUserPasswordChange) {
+		if !ginutil.AllowNamed(c, rl, ginutil.RL2FAEnable) {
 			ginutil.TooMany(c)
 			return
 		}

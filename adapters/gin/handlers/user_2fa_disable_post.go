@@ -11,7 +11,7 @@ import (
 // HandleUser2FADisablePOST disables 2FA for the current user
 func HandleUser2FADisablePOST(svc core.Provider, rl ginutil.RateLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !ginutil.AllowNamed(c, rl, ginutil.RLUserPasswordChange) {
+		if !ginutil.AllowNamed(c, rl, ginutil.RL2FADisable) {
 			ginutil.TooMany(c)
 			return
 		}
