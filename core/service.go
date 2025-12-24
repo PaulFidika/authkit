@@ -396,55 +396,6 @@ func (s *Service) getUserByPhone(ctx context.Context, phone string) (*User, erro
 	return &u, nil
 }
 
-// usePhoneChangeToken verifies and consumes a phone change code, returning userID and phone.
-func (s *Service) usePhoneChangeToken(ctx context.Context, userID, codeHash string) (string, string, error) {
-	// Search all phone_verifications with purpose "change_phone" for this user
-	// (We use phone as key, so must scan all possible phones. For simplicity, just try the current and pending phone.)
-	u, err := s.getUserByID(ctx, userID)
-	if err != nil || u == nil {
-		return "", "", errOrUnauthorized(err)
-	}
-	phones := []string{}
-	if u.PhoneNumber != nil {
-		phones = append(phones, *u.PhoneNumber)
-	}
-	// Try to get pending phone from ephemeral store
-	if s.useEphemeralStore() {
-		rec, phone, err := s.getPendingPhoneChangeByUser(ctx, userID)
-		if err == nil && rec == userID && phone != "" {
-			phones = append(phones, phone)
-		}
-	}
-	for _, phone := range phones {
-		var data phoneVerificationData
-		ok, _ := s.ephemGetJSON(ctx, s.phoneVerificationKey("change_phone", phone), &data)
-		if ok && data.UserID == userID && data.CodeHash == codeHash {
-			_ = s.ephemDel(ctx, s.phoneVerificationKey("change_phone", phone))
-			return userID, phone, nil
-		}
-	}
-	return "", "", jwt.ErrTokenUnverifiable
-}
-
-// getPendingPhoneChangeByUser returns the pending phone change for a user, if any.
-func (s *Service) getPendingPhoneChangeByUser(ctx context.Context, userID string) (string, string, error) {
-	// Scan all phone_verifications with purpose "change_phone" for this user
-	// (Ephemeral store does not index by user, so we must try known phones. For now, just try current phone.)
-	u, err := s.getUserByID(ctx, userID)
-	if err != nil || u == nil {
-		return "", "", errOrUnauthorized(err)
-	}
-	if u.PhoneNumber != nil {
-		var data phoneVerificationData
-		ok, _ := s.ephemGetJSON(ctx, s.phoneVerificationKey("change_phone", *u.PhoneNumber), &data)
-		if ok && data.UserID == userID {
-			return userID, *u.PhoneNumber, nil
-		}
-	}
-	// Could extend to scan all possible phones if needed
-	return "", "", fmt.Errorf("no pending phone change found")
-}
-
 // setPhoneVerified sets the phone_verified flag for a user.
 func (s *Service) setPhoneVerified(ctx context.Context, id string, v bool) error {
 	if s.pg == nil {
