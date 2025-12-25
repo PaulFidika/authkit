@@ -234,6 +234,177 @@ func (s *Service) Keyfunc() func(token *jwt.Token) (any, error) {
 	}
 }
 
+// RequestPhoneChange initiates a phone number change by sending a verification code to the new phone.
+// The current phone is NOT changed until the user confirms via ConfirmPhoneChange.
+func (s *Service) RequestPhoneChange(ctx context.Context, userID, newPhone string) error {
+	if s.pg == nil {
+		return fmt.Errorf("postgres not configured")
+	}
+
+	trimmed := strings.TrimSpace(newPhone)
+	if trimmed == "" {
+		return fmt.Errorf("phone required")
+	}
+
+	// Get user
+	u, err := s.getUserByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		return fmt.Errorf("user not found")
+	}
+
+	// Check if trying to change to the same phone
+	if u.PhoneNumber != nil && strings.EqualFold(*u.PhoneNumber, trimmed) {
+		return fmt.Errorf("new phone is the same as current phone")
+	}
+
+	// Check if new phone is already in use by another user
+	existing, _ := s.getUserByPhone(ctx, trimmed)
+	if existing != nil && existing.ID != userID {
+		return fmt.Errorf("phone already in use")
+	}
+
+	// Generate 6-digit numeric code
+	code := randAlphanumeric(6)
+	hash := sha256Hex(code)
+
+	// TTL for phone change is 24 hours (longer than regular verification)
+	ttl := 24 * time.Hour
+
+	// Store phone verification with purpose "change_phone" keyed by userID
+	if err := s.storePhoneVerification(ctx, "change_phone", userID, trimmed, hash, ttl); err != nil {
+		return err
+	}
+
+	username := ""
+	if u.Username != nil {
+		username = *u.Username
+	}
+
+	// Send verification code to new phone
+	if s.sms != nil {
+		_ = s.sms.SendVerificationCode(ctx, trimmed, code)
+	} else {
+		stdlog.Printf("[authkit/dev-sms] phone change verify to=%s username=%s code=%s", trimmed, username, code)
+	}
+
+	// Optionally: notify old phone (not implemented)
+
+	return nil
+}
+
+// ConfirmPhoneChange verifies the code and updates the user's phone number.
+// This is called when the user enters the verification code sent to their new phone.
+func (s *Service) ConfirmPhoneChange(ctx context.Context, userID, phone, code string) error {
+	if s.pg == nil {
+		return jwt.ErrTokenUnverifiable
+	}
+
+	// Use consumePhoneVerification to validate and consume the code, keyed by userID
+	hash := sha256Hex(code)
+	if s.useEphemeralStore() {
+		pendingPhone, err := s.consumePhoneVerification(ctx, "change_phone", userID, hash)
+		if err != nil {
+			return jwt.ErrTokenUnverifiable
+		}
+		phone = pendingPhone
+	} else {
+		return jwt.ErrTokenUnverifiable
+	}
+
+	// Get current user
+	u, err := s.getUserByID(ctx, userID)
+	if err != nil || u == nil {
+		return errOrUnauthorized(err)
+	}
+
+	// Check if the phone is different from current phone (it's a change)
+	if u.PhoneNumber != nil && strings.EqualFold(*u.PhoneNumber, phone) {
+		// Same phone - just verify it
+		return s.setPhoneVerified(ctx, userID, true)
+	}
+
+	// Different phone - this is a phone change request
+	_, err = s.pg.Exec(ctx, `UPDATE profiles.users SET phone_number=$2, phone_verified=true, updated_at=NOW() WHERE id=$1`, userID, phone)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ResendPhoneChangeCode resends the verification code for a pending phone change.
+func (s *Service) ResendPhoneChangeCode(ctx context.Context, userID, phone string) error {
+	// Get current user
+	u, err := s.getUserByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		return fmt.Errorf("user not found")
+	}
+
+	// Check if pending phone is different from current (it's a change request, not just verification)
+	if u.PhoneNumber != nil && strings.EqualFold(*u.PhoneNumber, phone) {
+		return fmt.Errorf("no pending phone change found")
+	}
+
+	// Check if pending phone change exists (by userID)
+	var data phoneVerificationData
+	ok, _ := s.ephemGetJSON(ctx, s.phoneVerificationKey("change_phone", phone), &data)
+	if !ok || data.UserID != userID {
+		return fmt.Errorf("no pending phone change found")
+	}
+
+	// Generate new code
+	code := randAlphanumeric(6)
+	hash := sha256Hex(code)
+	ttl := 24 * time.Hour
+
+	// Store new phone verification (by userID)
+	if err := s.storePhoneVerification(ctx, "change_phone", userID, phone, hash, ttl); err != nil {
+		return err
+	}
+
+	username := ""
+	if u.Username != nil {
+		username = *u.Username
+	}
+
+	// Send new code
+	if s.sms != nil {
+		_ = s.sms.SendVerificationCode(ctx, phone, code)
+	} else {
+		stdlog.Printf("[authkit/dev-sms] phone change resend to=%s username=%s code=%s", phone, username, code)
+	}
+
+	return nil
+}
+
+// getUserByPhone returns a user by phone number (if any)
+func (s *Service) getUserByPhone(ctx context.Context, phone string) (*User, error) {
+	if s.pg == nil {
+		return nil, nil
+	}
+	row := s.pg.QueryRow(ctx, `SELECT id, email, phone_number, username, discord_username, email_verified, phone_verified, is_active, deleted_at, biography, created_at, updated_at, last_login FROM profiles.users WHERE phone_number=$1`, phone)
+	var u User
+	if err := row.Scan(&u.ID, &u.Email, &u.PhoneNumber, &u.Username, &u.DiscordUsername, &u.EmailVerified, &u.PhoneVerified, &u.IsActive, &u.DeletedAt, &u.Biography, &u.CreatedAt, &u.UpdatedAt, &u.LastLogin); err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// setPhoneVerified sets the phone_verified flag for a user.
+func (s *Service) setPhoneVerified(ctx context.Context, id string, v bool) error {
+	if s.pg == nil {
+		return nil
+	}
+	_, err := s.pg.Exec(ctx, `UPDATE profiles.users SET phone_verified=$2, updated_at=NOW() WHERE id=$1`, id, v)
+	return err
+}
+
 // SendPhone2FASetupCode generates and sends a 6-digit code for 2FA setup to the user's phone.
 func (s *Service) SendPhone2FASetupCode(ctx context.Context, userID, phone, code string) error {
 	hash := sha256Hex(code)
