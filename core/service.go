@@ -1902,10 +1902,27 @@ func (s *Service) DeriveUsername(email string) string { return deriveUsername(em
 // LogLogin records a login event via the configured AuthEventLogger (best-effort).
 // method examples: "password_login", "oidc_login" (optionally suffixed with provider slug by the caller if desired).
 func (s *Service) LogLogin(ctx context.Context, userID string, method string, sessionID string, ip *string, ua *string) {
-	if s.authlog == nil {
-		return
+	if s.pg != nil {
+		site := ""
+		if ctxSite, ok := ctx.Value("site").(string); ok {
+			site = ctxSite
+		}
+		ipVal := ""
+		if ip != nil {
+			ipVal = *ip
+		}
+		// Determine login success from context if available
+		var success bool
+		if ctxSuccess, ok := ctx.Value("login_success").(bool); ok {
+			success = ctxSuccess
+		} else {
+			success = method == "password_login" || method == "oidc_login"
+		}
+		_, _ = s.pg.Exec(ctx, `INSERT INTO profiles.signin_history (user_id, date, ip, site, success) VALUES ($1, now(), $2, $3, $4)`, userID, ipVal, site, success)
 	}
-	_ = s.authlog.LogLogin(ctx, userID, s.opts.Issuer, method, sessionID, ip, ua)
+	if s.authlog != nil {
+		_ = s.authlog.LogLogin(ctx, userID, s.opts.Issuer, method, sessionID, ip, ua)
+	}
 }
 
 // Deprecated: LogSignin kept for compatibility. Use LogLogin with a session ID.
@@ -1938,12 +1955,31 @@ type SigninEntry struct {
 	IPAddr     *string
 	UserAgent  *string
 	Action     string
+	Site       *string
+	Success    bool
 }
 
 func (s *Service) AdminGetUserSignins(ctx context.Context, userID string, page, pageSize int) ([]SigninEntry, error) {
-	// Sign-in history moved to ClickHouse; this endpoint no longer sources from Postgres.
-	// Returning empty data keeps admin UI functional without Postgres signins.
-	return []SigninEntry{}, nil
+	if s.pg == nil {
+		return []SigninEntry{}, nil
+	}
+	rows, err := s.pg.Query(ctx, `SELECT date, ip, site, success FROM profiles.signin_history WHERE user_id=$1 ORDER BY date DESC LIMIT 30`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []SigninEntry
+	for rows.Next() {
+		var e SigninEntry
+		var ip, site *string
+		if err := rows.Scan(&e.OccurredAt, &ip, &site, &e.Success); err != nil {
+			return nil, err
+		}
+		e.IPAddr = ip
+		e.Site = site
+		out = append(out, e)
+	}
+	return out, nil
 }
 
 // Provider link management

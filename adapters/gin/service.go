@@ -93,7 +93,8 @@ func (s *Service) GinRegisterJWKS(root gin.IRouter) *Service {
 }
 
 // GinRegisterOIDC mounts browser redirect flows. By default these go under "/auth/...".
-func (s *Service) GinRegisterOIDC(root gin.IRouter) *Service {
+// GinRegisterOIDC mounts browser redirect flows. Optionally specify a site name for tracking.
+func (s *Service) GinRegisterOIDC(root gin.IRouter, site ...string) *Service {
 	rl := s.ensureLimiter()
 	_ = rl // currently used inside handlers; keep initialized for rate limits
 	providers := s.oidcProviders
@@ -103,8 +104,12 @@ func (s *Service) GinRegisterOIDC(root gin.IRouter) *Service {
 	mgr := oidckit.NewManagerFromMinimal(providers)
 	state := s.stateCache()
 	oidcCfg := handlers.OIDCConfig{Manager: mgr, StateCache: state}
-	root.GET("/auth/oidc/:provider/login", handlers.HandleOIDCLoginGET(oidcCfg, s.svc, rl))
-	root.GET("/auth/oidc/:provider/callback", handlers.HandleOIDCCallbackGET(oidcCfg, s.svc, nil, rl))
+	var siteName string
+	if len(site) > 0 {
+		siteName = site[0]
+	}
+	root.GET("/auth/oidc/:provider/login", handlers.HandleOIDCLoginGET(oidcCfg, s.svc, rl, siteName))
+	root.GET("/auth/oidc/:provider/callback", handlers.HandleOIDCCallbackGET(oidcCfg, s.svc, nil, rl, siteName))
 	if _, ok := providers["discord"]; ok {
 		root.GET("/auth/oauth/discord/login", handlers.HandleDiscordLoginGET(oidcCfg, s.svc, rl))
 		root.GET("/auth/oauth/discord/callback", handlers.HandleDiscordCallbackGET(oidcCfg, s.svc, rl))
@@ -113,7 +118,8 @@ func (s *Service) GinRegisterOIDC(root gin.IRouter) *Service {
 }
 
 // GinRegisterAPI mounts JSON API endpoints under the given router/group (e.g., /api/v1).
-func (s *Service) GinRegisterAPI(api gin.IRouter) *Service {
+// GinRegisterAPI mounts JSON API endpoints. Optionally specify a site name for tracking.
+func (s *Service) GinRegisterAPI(api gin.IRouter, site ...string) *Service {
 	rl := s.ensureLimiter()
 	auth := MiddlewareFromSVC(s)
 	if !core.IsDevEnvironment() {
@@ -123,7 +129,12 @@ func (s *Service) GinRegisterAPI(api gin.IRouter) *Service {
 		}
 	}
 
-	api.POST("/auth/password/login", handlers.HandlePasswordLoginPOST(s.svc, rl))
+	var siteName string
+	if len(site) > 0 {
+		siteName = site[0]
+	}
+
+	api.POST("/auth/password/login", handlers.HandlePasswordLoginPOST(s.svc, rl, siteName))
 
 	// Unified registration (accepts email or phone in identifier field)
 	api.POST("/auth/register", handlers.HandleRegisterUnifiedPOST(s.svc, rl))
