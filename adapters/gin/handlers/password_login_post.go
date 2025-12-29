@@ -29,8 +29,30 @@ func HandlePasswordLoginPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 	}
 	return func(c *gin.Context) {
 
-		// Helper to log failed login attempts
-		logFailed := func(userID string) {
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "site", site))
+
+		// Helper to log failed login attempts, resolving userID from identifier if not provided
+		logFailed := func(identifier string) {
+			userID := ""
+			if identifier != "" {
+				if strings.Contains(identifier, "@") {
+					usr, _ := svc.GetUserByEmail(c.Request.Context(), identifier)
+					if usr != nil {
+						userID = usr.ID
+					}
+				} else if strings.HasPrefix(identifier, "+") {
+					usr, _ := svc.GetUserByPhone(c.Request.Context(), identifier)
+					if usr != nil {
+						userID = usr.ID
+					}
+				} else {
+					usr, _ := svc.GetUserByUsername(c.Request.Context(), identifier)
+					if usr != nil {
+						userID = usr.ID
+					}
+				}
+			}
+
 			ua := c.Request.UserAgent()
 			ip := c.ClientIP()
 			uaPtr, ipPtr := &ua, &ip
@@ -39,22 +61,24 @@ func HandlePasswordLoginPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 			svc.LogLogin(ctx, userID, "password_login", "", ipPtr, uaPtr)
 		}
 		if !ginutil.AllowNamed(c, rl, ginutil.RLPasswordLogin) {
-			logFailed("")
+
 			ginutil.TooMany(c)
 			return
 		}
 		var req loginReq
+
 		if err := c.ShouldBindJSON(&req); err != nil || req.Password == "" {
-			logFailed("")
 			ginutil.BadRequest(c, "invalid_request")
 			return
 		}
+
 		identifier := strings.TrimSpace(req.Email)
 		if identifier == "" {
 			identifier = strings.TrimSpace(req.Login)
 		}
+
 		if identifier == "" {
-			logFailed("")
+
 			ginutil.BadRequest(c, "invalid_request")
 			return
 		}
@@ -76,12 +100,12 @@ func HandlePasswordLoginPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 					if ok, verr := pwhash.VerifyArgon2id(pending.PasswordHash, req.Password); verr == nil && ok {
 						// Recreate pending to generate and send a fresh code via SMS
 						_, _ = svc.CreatePendingPhoneRegistration(c.Request.Context(), identifier, pending.Username, pending.PasswordHash)
-						logFailed("")
+						logFailed(identifier)
 						ginutil.Unauthorized(c, "phone_not_verified")
 						return
 					}
 				}
-				logFailed("")
+				logFailed(identifier)
 				ginutil.Unauthorized(c, "invalid_credentials")
 				return
 			}
@@ -101,7 +125,7 @@ func HandlePasswordLoginPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 			// Username-based login
 			usr, e := svc.GetUserByUsername(c.Request.Context(), identifier)
 			if e != nil || usr == nil {
-				logFailed("")
+				logFailed(identifier)
 				ginutil.Unauthorized(c, "invalid_credentials")
 				return
 			}
@@ -134,7 +158,7 @@ func HandlePasswordLoginPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 				} else {
 					// Send verification email automatically when user tries to login with unverified email and they cannot register again.
 					_ = svc.RequestEmailVerification(c.Request.Context(), *fetchedUser.Email, 0)
-					logFailed(userID)
+					logFailed(identifier)
 					ginutil.Unauthorized(c, "email_not_verified")
 					return
 				}
@@ -153,7 +177,7 @@ func HandlePasswordLoginPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 				} else {
 					// Send verification SMS automatically when user tries to login with unverified phone
 					_ = svc.SendPhoneVerificationToUser(c.Request.Context(), *fetchedUser.PhoneNumber, userID, 0)
-					logFailed(userID)
+					logFailed(identifier)
 					ginutil.Unauthorized(c, "phone_not_verified")
 					return
 				}
@@ -169,7 +193,7 @@ func HandlePasswordLoginPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 			// Phone or username flow: verify by user ID (email may be NULL)
 			token, exp, err = svc.PasswordLoginByUserID(c.Request.Context(), userID, req.Password, nil)
 			if err != nil {
-				logFailed(userID)
+				logFailed(identifier)
 				ginutil.Unauthorized(c, "invalid_credentials")
 				return
 			}
@@ -185,13 +209,13 @@ func HandlePasswordLoginPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 						// Password is correct but email not verified - resend verification email
 						// Resend by creating new pending registration with same credentials (generates new code)
 						_, _ = svc.CreatePendingRegistration(c.Request.Context(), loginEmail, pendingUser.Username, pendingUser.PasswordHash, 0)
-						logFailed("")
+						logFailed(loginEmail)
 						ginutil.Unauthorized(c, "email_not_verified")
 						return
 					}
 				}
 				// Either user doesn't exist, or password is wrong
-				logFailed("")
+				logFailed(loginEmail)
 				ginutil.Unauthorized(c, "invalid_credentials")
 				return
 			}

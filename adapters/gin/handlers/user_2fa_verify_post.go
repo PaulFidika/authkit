@@ -25,13 +25,12 @@ type verify2FAResponse struct {
 }
 
 // HandleUser2FAVerifyPOST verifies a 2FA code during login and issues tokens
-func HandleUser2FAVerifyPOST(svc core.Provider, rl ginutil.RateLimiter) gin.HandlerFunc {
+func HandleUser2FAVerifyPOST(svc core.Provider, rl ginutil.RateLimiter, site string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Track site name if present in context
-		site, _ := c.Get("site")
-		if siteStr, ok := site.(string); ok && siteStr != "" {
-			c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "site", siteStr))
-		}
+
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "site", site))
+
 		logAttempt := func(userID string, success bool, sid string) {
 			ua := c.Request.UserAgent()
 			ip := c.ClientIP()

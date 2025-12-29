@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"log"
 	stdlog "log"
 	"os"
 	"sort"
@@ -1903,6 +1904,7 @@ func (s *Service) DeriveUsername(email string) string { return deriveUsername(em
 // method examples: "password_login", "oidc_login" (optionally suffixed with provider slug by the caller if desired).
 func (s *Service) LogLogin(ctx context.Context, userID string, method string, sessionID string, ip *string, ua *string) {
 	if s.pg != nil {
+		log.Println("Logging signin history for user:", userID)
 		site := ""
 		if ctxSite, ok := ctx.Value("site").(string); ok {
 			site = ctxSite
@@ -1920,6 +1922,7 @@ func (s *Service) LogLogin(ctx context.Context, userID string, method string, se
 		}
 		_, _ = s.pg.Exec(ctx, `INSERT INTO profiles.signin_history (user_id, date, ip, site, success) VALUES ($1, now(), $2, $3, $4)`, userID, ipVal, site, success)
 	}
+
 	if s.authlog != nil {
 		_ = s.authlog.LogLogin(ctx, userID, s.opts.Issuer, method, sessionID, ip, ua)
 	}

@@ -32,13 +32,12 @@ type discordUser struct {
 }
 
 // HandleDiscordCallbackGET completes the Discord OAuth2 code flow and issues our tokens.
-func HandleDiscordCallbackGET(cfg OIDCConfig, svc core.Provider, rl ginutil.RateLimiter) gin.HandlerFunc {
+func HandleDiscordCallbackGET(cfg OIDCConfig, svc core.Provider, rl ginutil.RateLimiter, site string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Track site name if present in context
-		site, _ := c.Get("site")
-		if siteStr, ok := site.(string); ok && siteStr != "" {
-			c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "site", siteStr))
-		}
+
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "site", site))
+
 		logFailed := func(userID string) {
 			ua := c.Request.UserAgent()
 			ip := c.ClientIP()

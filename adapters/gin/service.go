@@ -112,7 +112,7 @@ func (s *Service) GinRegisterOIDC(root gin.IRouter, site ...string) *Service {
 	root.GET("/auth/oidc/:provider/callback", handlers.HandleOIDCCallbackGET(oidcCfg, s.svc, nil, rl, siteName))
 	if _, ok := providers["discord"]; ok {
 		root.GET("/auth/oauth/discord/login", handlers.HandleDiscordLoginGET(oidcCfg, s.svc, rl))
-		root.GET("/auth/oauth/discord/callback", handlers.HandleDiscordCallbackGET(oidcCfg, s.svc, rl))
+		root.GET("/auth/oauth/discord/callback", handlers.HandleDiscordCallbackGET(oidcCfg, s.svc, rl, siteName))
 	}
 	return s
 }
@@ -201,7 +201,7 @@ func (s *Service) GinRegisterAPI(api gin.IRouter, site ...string) *Service {
 	api.POST("/auth/user/2fa/enable", auth.Required(), handlers.HandleUser2FAEnablePOST(s.svc, rl))
 	api.POST("/auth/user/2fa/disable", auth.Required(), handlers.HandleUser2FADisablePOST(s.svc, rl))
 	api.POST("/auth/user/2fa/regenerate-codes", auth.Required(), handlers.HandleUser2FARegenerateCodesPOST(s.svc, rl))
-	api.POST("/auth/2fa/verify", handlers.HandleUser2FAVerifyPOST(s.svc, rl)) // No auth required - this is during login
+	api.POST("/auth/2fa/verify", handlers.HandleUser2FAVerifyPOST(s.svc, rl, siteName)) // No auth required - this is during login
 
 	// Admin routes
 	admin := api.Group("/auth/admin").Use(auth.Required(), auth.RequireAdmin(s.svc.Postgres()))
