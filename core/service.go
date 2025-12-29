@@ -1746,7 +1746,7 @@ type AdminListUsersResult struct {
 	Offset int         `json:"offset"`
 }
 
-func (s *Service) AdminListUsers(ctx context.Context, page, pageSize int) (*AdminListUsersResult, error) {
+func (s *Service) AdminListUsers(ctx context.Context, page, pageSize int, filter, search string) (*AdminListUsersResult, error) {
 	if s.pg == nil {
 		return &AdminListUsersResult{Users: []AdminUser{}, Total: 0, Limit: pageSize, Offset: 0}, nil
 	}
@@ -1758,13 +1758,65 @@ func (s *Service) AdminListUsers(ctx context.Context, page, pageSize int) (*Admi
 	}
 	offset := (page - 1) * pageSize
 
-	// Get total count
+	// Only support these filters:
+	// "All users", "Super administrators", "Taggers", "Bloggers"
+
+	where := []string{"1=1"}
+	args := []interface{}{}
+	argIdx := 1
+	from := "profiles.users u"
+	orderBy := "u.created_at DESC"
+	limitOverride := 0
+
+	switch filter {
+	case "super administrators":
+		from += " JOIN profiles.user_roles ur ON ur.user_id = u.id JOIN profiles.roles r ON ur.role_id = r.id AND r.deleted_at IS NULL"
+		where = append(where, "r.slug = $"+fmt.Sprint(argIdx))
+		args = append(args, "admin")
+		argIdx++
+	case "taggers":
+		from += " JOIN profiles.user_roles ur ON ur.user_id = u.id JOIN profiles.roles r ON ur.role_id = r.id AND r.deleted_at IS NULL"
+		where = append(where, "r.slug = $"+fmt.Sprint(argIdx))
+		args = append(args, "tagger")
+		argIdx++
+	case "bloggers":
+		from += " JOIN profiles.user_roles ur ON ur.user_id = u.id JOIN profiles.roles r ON ur.role_id = r.id AND r.deleted_at IS NULL"
+		where = append(where, "r.slug = $"+fmt.Sprint(argIdx))
+		args = append(args, "blogger")
+		argIdx++
+	case "10 random premium members":
+		// Use a subquery to select 10 random premium user IDs, then join back to users
+		from = "(SELECT u.* FROM profiles.users u JOIN profiles.user_roles ur ON ur.user_id = u.id JOIN profiles.roles r ON ur.role_id = r.id AND r.deleted_at IS NULL WHERE r.slug = $" + fmt.Sprint(argIdx) + " ORDER BY RANDOM() LIMIT 10) u"
+		args = append(args, "premium")
+		argIdx++
+		// No additional where clause needed
+		orderBy = "u.created_at DESC"
+		limitOverride = 0
+	}
+
+	// Search (username, email, phone)
+	if search != "" {
+		where = append(where, "(u.username ILIKE $"+fmt.Sprint(argIdx)+" OR u.email ILIKE $"+fmt.Sprint(argIdx)+" OR u.phone_number ILIKE $"+fmt.Sprint(argIdx)+")")
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	countQuery := "SELECT COUNT(DISTINCT u.id) FROM " + from + " WHERE " + strings.Join(where, " AND ")
 	var total int64
-	if err := s.pg.QueryRow(ctx, `SELECT COUNT(*) FROM profiles.users`).Scan(&total); err != nil {
+	if err := s.pg.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, err
 	}
 
-	rows, err := s.pg.Query(ctx, `SELECT id::text, email, username, email_verified, is_active, biography, created_at, updated_at, last_login FROM profiles.users ORDER BY created_at DESC OFFSET $1 LIMIT $2`, offset, pageSize)
+	selectCols := "u.id::text, u.email, u.phone_number, u.username, u.discord_username, u.email_verified, u.phone_verified, u.is_active, u.biography, u.created_at, u.updated_at, u.last_login"
+	query := "SELECT DISTINCT " + selectCols + " FROM " + from + " WHERE " + strings.Join(where, " AND ") + " ORDER BY " + orderBy
+	if limitOverride > 0 {
+		query += " LIMIT " + fmt.Sprint(limitOverride)
+	} else {
+		query += " OFFSET $" + fmt.Sprint(argIdx) + " LIMIT $" + fmt.Sprint(argIdx+1)
+		args = append(args, offset, pageSize)
+	}
+
+	rows, err := s.pg.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -1772,7 +1824,7 @@ func (s *Service) AdminListUsers(ctx context.Context, page, pageSize int) (*Admi
 	var out []AdminUser
 	for rows.Next() {
 		var a AdminUser
-		if err := rows.Scan(&a.ID, &a.Email, &a.Username, &a.EmailVerified, &a.IsActive, &a.Biography, &a.CreatedAt, &a.UpdatedAt, &a.LastLogin); err != nil {
+		if err := rows.Scan(&a.ID, &a.Email, &a.PhoneNumber, &a.Username, &a.DiscordUsername, &a.EmailVerified, &a.PhoneVerified, &a.IsActive, &a.Biography, &a.CreatedAt, &a.UpdatedAt, &a.LastLogin); err != nil {
 			return nil, err
 		}
 		a.Roles = s.listRoleSlugsByUser(ctx, a.ID)

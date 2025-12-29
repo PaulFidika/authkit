@@ -120,7 +120,7 @@ type Provider interface {
 	LinkSolanaWallet(ctx context.Context, cache siws.ChallengeCache, userID string, output siws.SignInOutput) error
 
 	// Admin operations
-	AdminListUsers(ctx context.Context, page, pageSize int) (*AdminListUsersResult, error)
+	AdminListUsers(ctx context.Context, page, pageSize int, filter, search string) (*AdminListUsersResult, error)
 	AdminGetUser(ctx context.Context, userID string) (*AdminUser, error)
 	AdminDeleteUser(ctx context.Context, userID string) error
 	AssignRoleBySlug(ctx context.Context, userID, slug string) error
