@@ -53,6 +53,8 @@ type Provider interface {
 	PasswordLogin(ctx context.Context, email, pass string, extra map[string]any) (string, time.Time, error)
 	PasswordLoginByUserID(ctx context.Context, userID, pass string, extra map[string]any) (string, time.Time, error)
 	ChangePassword(ctx context.Context, userID, current, new string, keepSessionID *string) error
+	// AdminSetPassword force-sets a user's password (admin only, no current password required)
+	AdminSetPassword(ctx context.Context, userID, new string) error
 	HasPassword(ctx context.Context, userID string) bool
 
 	HasEmailSender() bool

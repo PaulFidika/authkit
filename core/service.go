@@ -140,6 +140,32 @@ func (s *Service) JWKS() jwtkit.JWKS {
 	return ks
 }
 
+// AdminSetPassword force-sets a user's password
+// (admin only, no current password required)
+func (s *Service) AdminSetPassword(ctx context.Context, userID, new string) error {
+	if s.pg == nil {
+		return fmt.Errorf("postgres not configured")
+	}
+	if strings.TrimSpace(userID) == "" {
+		return fmt.Errorf("invalid_user")
+	}
+	if err := password.Validate(new); err != nil {
+		return err
+	}
+	phc, err := password.HashArgon2id(new)
+	if err != nil {
+		return err
+	}
+	if err := s.upsertPasswordHash(ctx, userID, phc, "argon2id", nil); err != nil {
+		return err
+	}
+	// Revoke all sessions for security
+	if err := s.RevokeAllSessions(ctx, userID, nil); err != nil {
+		return err
+	}
+	return nil
+}
+
 // IssueAccessToken builds and signs an access token (JWT) for the given user.
 // Includes core registered claims plus:
 // - roles (snapshot)
