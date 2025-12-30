@@ -11,6 +11,7 @@ import (
 
 // HandleAdminUsersSetPasswordPOST allows an admin to force-set a user's password.
 func HandleAdminUsersSetPasswordPOST(svc core.Provider, rl ginutil.RateLimiter) gin.HandlerFunc {
+
 	type setPasswordReq struct {
 		UserID   string `json:"user_id"`
 		Password string `json:"password"`

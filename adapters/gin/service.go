@@ -214,6 +214,7 @@ func (s *Service) GinRegisterAPI(api gin.IRouter, site ...string) *Service {
 	admin.POST("/users/set-email", handlers.HandleAdminUsersSetEmailPOST(s.svc, rl))
 	admin.POST("/users/set-username", handlers.HandleAdminUsersSetUsernamePOST(s.svc, rl))
 	admin.POST("/users/set-password", handlers.HandleAdminUsersSetPasswordPOST(s.svc, rl))
+
 	admin.POST("/users/toggle-active", handlers.HandleAdminUserToggleActivePOST(s.svc, rl))
 
 	admin.DELETE("/users/:user_id", handlers.HandleAdminUserDeleteDELETE(s.svc, rl))

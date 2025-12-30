@@ -244,7 +244,7 @@ func buildOAuthPopupHTML(payloadJSON []byte, targetOrigin string) []byte {
 		"  var data = " + string(payloadJSON) + ";\n" +
 		"  var targetOrigin = " + string(originJSON) + ";\n" +
 		"  if (window.opener) { window.opener.postMessage(data, targetOrigin); }\n" +
-		"} finally { /* window.close(); */ }\n" +
+		"} finally {  window.close(); }\n" +
 		"</script></body></html>"
 	return []byte(html)
 }
