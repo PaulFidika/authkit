@@ -166,6 +166,10 @@ func (s *Service) AdminSetPassword(ctx context.Context, userID, new string) erro
 	return nil
 }
 
+func (s *Service) EntitlementsProvider() EntitlementsProvider {
+	return s.entitlements
+}
+
 // IssueAccessToken builds and signs an access token (JWT) for the given user.
 // Includes core registered claims plus:
 // - roles (snapshot)
