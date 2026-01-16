@@ -1472,7 +1472,7 @@ func (s *Service) RestoreUser(ctx context.Context, id string) error {
 	if s.pg == nil {
 		return nil
 	}
-	_, err := s.pg.Exec(ctx, `UPDATE profiles.users SET is_active=true, deleted_at=NULL, updated_at=now() WHERE id=$1`, id)
+	_, err := s.pg.Exec(ctx, `UPDATE profiles.users SET deleted_at=NULL, updated_at=now() WHERE id=$1`, id)
 	return err
 }
 

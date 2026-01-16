@@ -5,6 +5,7 @@ import (
 
 	core "github.com/PaulFidika/authkit/core"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 // HandleAdminUserRestorePOST restores a soft-deleted user (clears deleted_at and re-enables the account).
@@ -17,6 +18,7 @@ func HandleAdminUserRestorePOST(svc core.Provider) gin.HandlerFunc {
 		}
 
 		if err := svc.RestoreUser(c.Request.Context(), userID); err != nil {
+			logrus.Errorf("failed to restore user %s: %v", userID, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed_to_restore_user"})
 			return
 		}
