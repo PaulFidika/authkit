@@ -103,10 +103,11 @@ func LookupDBUser(pg *pgxpool.Pool) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		if cl, ok := ClaimsFromGin(c); !ok || cl.UserID == "" {
+
+		/*if cl, ok := ClaimsFromGin(c); !ok || cl.UserID == "" {
 			c.Next()
 			return
-		}
+		}*/
 
 		uc := BuildUserContext(c, pg)
 		SetUserContext(c, uc)

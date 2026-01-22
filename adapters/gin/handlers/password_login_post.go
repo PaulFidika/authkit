@@ -253,6 +253,11 @@ func HandlePasswordLoginPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 					ginutil.ServerErrWithLog(c, "2fa_send_failed", err, "failed to send 2fa verification")
 					return
 				}
+				challenge, err := svc.Create2FAChallenge(c.Request.Context(), finalUserID)
+				if err != nil {
+					ginutil.ServerErrWithLog(c, "2fa_challenge_failed", err, "failed to create 2fa challenge")
+					return
+				}
 				// Return response indicating 2FA is required
 				// Obfuscate verification_id except last 5 characters
 				obfuscatedID := verificationID
@@ -264,6 +269,7 @@ func HandlePasswordLoginPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 					"user_id":         finalUserID,
 					"method":          twoFASettings.Method,
 					"verification_id": obfuscatedID,
+					"challenge":       challenge,
 				})
 				return
 			}

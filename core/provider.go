@@ -116,6 +116,9 @@ type Provider interface {
 	VerifyBackupCode(ctx context.Context, userID, code string) (bool, error)
 	RegenerateBackupCodes(ctx context.Context, userID string) ([]string, error)
 	Require2FAForLogin(ctx context.Context, userID string) (string, error)
+	Create2FAChallenge(ctx context.Context, userID string) (string, error)
+	Verify2FAChallenge(ctx context.Context, userID, challenge string) (bool, error)
+	Clear2FAChallenge(ctx context.Context, userID string) error
 
 	// Solana SIWS
 	GenerateSIWSChallenge(ctx context.Context, cache siws.ChallengeCache, domain, address, username string) (siws.SignInInput, error)

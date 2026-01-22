@@ -15,6 +15,7 @@ import (
 type verify2FARequest struct {
 	UserID     string `json:"user_id"`
 	Code       string `json:"code"`
+	Challenge  string `json:"challenge"`
 	BackupCode bool   `json:"backup_code"` // True if using backup code instead of 2FA code
 }
 
@@ -55,16 +56,29 @@ func HandleUser2FAVerifyPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 
 		userID := strings.TrimSpace(req.UserID)
 		code := strings.TrimSpace(req.Code)
+		challenge := strings.TrimSpace(req.Challenge)
 
-		if userID == "" || code == "" {
+		if userID == "" || code == "" || challenge == "" {
 			logAttempt(userID, false, "")
 			ginutil.BadRequest(c, "missing_fields")
 			return
 		}
 
+		validChallenge, err := svc.Verify2FAChallenge(c.Request.Context(), userID, challenge)
+		if err != nil {
+			logAttempt(userID, false, "")
+			ginutil.ServerErrWithLog(c, "challenge_verify_failed", err, "failed to verify 2fa challenge")
+			return
+		}
+		if !validChallenge {
+			logAttempt(userID, false, "")
+			ginutil.Unauthorized(c, "invalid_challenge")
+			return
+		}
+
 		// Verify the code (either 2FA code or backup code)
 		var valid bool
-		var err error
+		err = nil
 
 		if req.BackupCode {
 			valid, err = svc.VerifyBackupCode(c.Request.Context(), userID, code)
@@ -77,6 +91,7 @@ func HandleUser2FAVerifyPOST(svc core.Provider, rl ginutil.RateLimiter, site str
 			ginutil.Unauthorized(c, "invalid_code")
 			return
 		}
+		_ = svc.Clear2FAChallenge(c.Request.Context(), userID)
 
 		// Code verified - issue tokens and create session
 		sid, rt, _, err := svc.IssueRefreshSession(c.Request.Context(), userID, c.Request.UserAgent(), nil)
