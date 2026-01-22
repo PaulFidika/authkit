@@ -21,6 +21,7 @@ const (
 	keyEmailVerifyUser   = "auth:email_verify:user:"
 	keyPasswordReset     = "auth:password_reset:token:"
 	keyTwoFactor         = "auth:2fa:code:"
+	keyTwoFactorChallenge = "auth:2fa:challenge:"
 )
 
 type pendingRegistrationData struct {
@@ -225,4 +226,16 @@ func (s *Service) consumeTwoFactorCode(ctx context.Context, userID, codeHash str
 	}
 	_ = s.ephemDel(ctx, keyTwoFactor+userID)
 	return true, nil
+}
+
+func (s *Service) storeTwoFactorChallenge(ctx context.Context, userID, challengeHash string, ttl time.Duration) error {
+	return s.ephemSetString(ctx, keyTwoFactorChallenge+userID, challengeHash, ttl)
+}
+
+func (s *Service) getTwoFactorChallenge(ctx context.Context, userID string) (string, bool, error) {
+	return s.ephemGetString(ctx, keyTwoFactorChallenge+userID)
+}
+
+func (s *Service) deleteTwoFactorChallenge(ctx context.Context, userID string) error {
+	return s.ephemDel(ctx, keyTwoFactorChallenge+userID)
 }

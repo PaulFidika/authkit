@@ -9,6 +9,7 @@ import (
 	oidckit "github.com/PaulFidika/authkit/oidc"
 	"github.com/gin-gonic/gin"
 	jwt "github.com/golang-jwt/jwt/v5"
+	"github.com/sirupsen/logrus"
 )
 
 type OIDCConfig struct {
@@ -38,6 +39,7 @@ func HandleOIDCLoginGET(cfg OIDCConfig, svc core.Verifier, rl ginutil.RateLimite
 		redirectURI := ginutil.BuildRedirectURI(c, provider)
 		authURL, err := cfg.Manager.Begin(c.Request.Context(), provider, state, nonce, challenge, redirectURI)
 		if err != nil {
+			logrus.WithError(err).Error("failed to begin oidc login")
 			c.Set("login_success", false)
 			ginutil.BadRequest(c, "oidc_begin_failed")
 			return

@@ -2580,6 +2580,42 @@ func (s *Service) Require2FAForLogin(ctx context.Context, userID string) (string
 	return destination, nil
 }
 
+// Create2FAChallenge creates a short-lived challenge to prove password verification before 2FA.
+func (s *Service) Create2FAChallenge(ctx context.Context, userID string) (string, error) {
+	if !s.useEphemeralStore() {
+		return "", fmt.Errorf("ephemeral store not configured")
+	}
+	challenge := randB64(32)
+	hash := sha256Hex(challenge)
+	if err := s.storeTwoFactorChallenge(ctx, userID, hash, 10*time.Minute); err != nil {
+		return "", err
+	}
+	return challenge, nil
+}
+
+// Verify2FAChallenge verifies the challenge created during the password step.
+func (s *Service) Verify2FAChallenge(ctx context.Context, userID, challenge string) (bool, error) {
+	if strings.TrimSpace(challenge) == "" {
+		return false, nil
+	}
+	if !s.useEphemeralStore() {
+		return false, fmt.Errorf("ephemeral store not configured")
+	}
+	stored, ok, err := s.getTwoFactorChallenge(ctx, userID)
+	if err != nil || !ok {
+		return false, err
+	}
+	return stored == sha256Hex(challenge), nil
+}
+
+// Clear2FAChallenge removes the stored challenge after successful 2FA verification.
+func (s *Service) Clear2FAChallenge(ctx context.Context, userID string) error {
+	if !s.useEphemeralStore() {
+		return fmt.Errorf("ephemeral store not configured")
+	}
+	return s.deleteTwoFactorChallenge(ctx, userID)
+}
+
 // Verify2FACode verifies a 2FA code entered by the user during login.
 // Returns true if code is valid, false otherwise.
 func (s *Service) Verify2FACode(ctx context.Context, userID, code string) (bool, error) {
