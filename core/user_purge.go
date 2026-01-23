@@ -40,4 +40,3 @@ func (s *Service) ListUsersDeletedBefore(ctx context.Context, cutoff time.Time, 
 func (s *Service) HardDeleteUser(ctx context.Context, userID string) error {
 	return s.AdminDeleteUser(ctx, userID)
 }
-

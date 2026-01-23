@@ -32,4 +32,3 @@ func AddPurgeDeletedUsersPeriodicJob[T any](client *river.Client[T], cronSpec st
 	)
 	return nil
 }
-

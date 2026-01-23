@@ -671,10 +671,26 @@ type EmailSender interface {
 	SendWelcome(ctx context.Context, email, username string) error
 }
 
+// EmailSenderWithPasswordResetLink is an optional extension interface for URL-based password reset.
+//
+// AuthKit does NOT construct user-facing URLs (site base URL + route). Host apps own templates and
+// should embed the provided token into their chosen reset URL.
+type EmailSenderWithPasswordResetLink interface {
+	SendPasswordResetLink(ctx context.Context, email, username, token string) error
+}
+
 // SMSSender sends verification and 2FA codes via SMS.
 type SMSSender interface {
 	SendVerificationCode(ctx context.Context, phone, code string) error
 	SendLoginCode(ctx context.Context, phone, code string) error
+}
+
+// SMSSenderWithPasswordResetLink is an optional extension interface for URL-based password reset via SMS.
+//
+// This is separate from Twilio Verify (OTP/codes). Password reset links should be delivered via a
+// messaging provider (e.g. Twilio Messaging/SMS API), not Verify.
+type SMSSenderWithPasswordResetLink interface {
+	SendPasswordResetLink(ctx context.Context, phone, token string) error
 }
 
 // WithEmailSender sets the email sender dependency.
@@ -689,7 +705,8 @@ func (s *Service) HasEmailSender() bool { return s.email != nil }
 // HasSMSSender returns true if an SMS sender is configured.
 func (s *Service) HasSMSSender() bool { return s.sms != nil }
 
-// RequestPasswordReset creates a reset code and dispatches email. Always returns 202-like behavior.
+// RequestPasswordReset creates a password reset token and dispatches a reset link via email.
+// Returns nil for unknown emails to prevent user enumeration (202-like behavior).
 func (s *Service) RequestPasswordReset(ctx context.Context, email string, ttl time.Duration) error {
 	if s.pg == nil {
 		return nil
@@ -699,25 +716,40 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string, ttl ti
 		return nil
 	}
 	if ttl <= 0 {
-		ttl = 15 * time.Minute // Shorter TTL for 6-digit codes (was 1 hour for long tokens)
+		ttl = 15 * time.Minute
 	}
-	// Generate 6-character alphanumeric code (A-Z, 0-9)
-	code := randAlphanumeric(6)
-	hash := sha256Hex(code)
+
+	token := randB64(32)
+	hash := sha256Hex(token)
 	if err := s.createResetToken(ctx, u.ID, hash, time.Now().Add(ttl)); err != nil {
+		// Internal error, but do not reveal anything about whether user exists.
+		return err
+	}
+
+	if u.Email == nil {
 		return nil
 	}
-	if u.Email != nil {
-		username := ""
-		if u.Username != nil {
-			username = *u.Username
-		}
-		if s.email != nil {
-			_ = s.email.SendPasswordResetCode(ctx, *u.Email, username, code)
-		} else {
-			stdlog.Printf("[authkit/dev-email] password reset email=%s username=%s code=%s", *u.Email, username, code)
-		}
+	username := ""
+	if u.Username != nil {
+		username = *u.Username
 	}
+
+	if s.email == nil {
+		if !isDevEnvironment(getEnvironment()) {
+			return fmt.Errorf("email password reset unavailable: email sender not configured")
+		}
+		stdlog.Printf("[authkit/dev-email] password reset email=%s username=%s token=%s", *u.Email, username, token)
+		return nil
+	}
+
+	linkSender, ok := s.email.(EmailSenderWithPasswordResetLink)
+	if !ok {
+		return fmt.Errorf("email password reset unavailable: email sender does not implement password reset links")
+	}
+	if err := linkSender.SendPasswordResetLink(ctx, *u.Email, username, token); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1167,8 +1199,8 @@ func (s *Service) ConfirmPhoneVerification(ctx context.Context, phone, code stri
 
 // --- Phone Password Reset (for phone+password users) ---
 
-// RequestPhonePasswordReset creates a verification code and sends it via SMS.
-// Always returns nil to prevent user enumeration (202-like behavior).
+// RequestPhonePasswordReset creates a password reset token and sends a reset link via SMS.
+// Always returns nil for unknown phone numbers to prevent user enumeration (202-like behavior).
 func (s *Service) RequestPhonePasswordReset(ctx context.Context, phone string, ttl time.Duration) error {
 	// Look up user by phone
 	u, err := s.GetUserByPhone(ctx, phone)
@@ -1177,63 +1209,41 @@ func (s *Service) RequestPhonePasswordReset(ctx context.Context, phone string, t
 	}
 
 	if ttl <= 0 {
-		ttl = 15 * time.Minute // Shorter than old email tokens (15 min vs 1 hour)
+		ttl = 15 * time.Minute
 	}
 
-	// Generate 6-character alphanumeric code (A-Z, 0-9)
-	code := randAlphanumeric(6)
-	hash := sha256Hex(code)
-	if s.useEphemeralStore() {
-		if err := s.storePhoneVerification(ctx, "password_reset", phone, u.ID, hash, ttl); err != nil {
-			return nil
+	token := randB64(32)
+	hash := sha256Hex(token)
+	if err := s.createResetToken(ctx, u.ID, hash, time.Now().Add(ttl)); err != nil {
+		return err
+	}
+
+	if s.sms == nil {
+		if !isDevEnvironment(getEnvironment()) {
+			return fmt.Errorf("SMS password reset unavailable: sms sender not configured")
 		}
-	} else {
+		stdlog.Printf("[authkit/dev-sms] password reset phone=%s token=%s", phone, token)
 		return nil
 	}
 
-	// Send SMS
-	if s.sms != nil {
-		_ = s.sms.SendVerificationCode(ctx, phone, code)
-	} else {
-		// In production, require SMS to be configured
+	linkSender, ok := s.sms.(SMSSenderWithPasswordResetLink)
+	if !ok {
 		if !isDevEnvironment(getEnvironment()) {
-			return fmt.Errorf("SMS password reset unavailable: Twilio not configured (phone password reset requires SMS in production)")
+			return fmt.Errorf("SMS password reset unavailable: sms sender does not implement password reset links")
 		}
-		// Dev mode: log code to stdout
-		stdlog.Printf("[authkit/dev-sms] password reset phone=%s code=%s", phone, code)
+		stdlog.Printf("[authkit/dev-sms] password reset phone=%s token=%s (no SMS link sender configured)", phone, token)
+		return nil
 	}
+	_ = linkSender.SendPasswordResetLink(ctx, phone, token)
 
 	return nil
 }
 
 // ConfirmPhonePasswordReset verifies the code and sets a new password.
 func (s *Service) ConfirmPhonePasswordReset(ctx context.Context, phone, code, newPassword string) (string, error) {
-	hash := sha256Hex(code)
-
-	var userID string
-	if s.useEphemeralStore() {
-		uid, err := s.consumePhoneVerification(ctx, "password_reset", phone, hash)
-		if err != nil {
-			return "", err
-		}
-		userID = uid
-	} else {
-		return "", jwt.ErrTokenUnverifiable
-	}
-
-	// Hash new password
-	phc, err := password.HashArgon2id(newPassword)
-	if err != nil {
-		return "", err
-	}
-
-	// Update password
-	if err := s.upsertPasswordHash(ctx, userID, phc, "argon2id", nil); err != nil {
-		return "", err
-	}
-
-	// Do not revoke existing sessions on reset (same policy as email reset)
-	return userID, nil
+	_ = phone
+	// Backward-compatible wrapper: password reset is token-based; confirm via the unified token path.
+	return s.ConfirmPasswordReset(ctx, code, newPassword)
 }
 
 // helpers

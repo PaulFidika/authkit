@@ -25,6 +25,7 @@ type Service struct {
 	rl            ginutil.RateLimiter
 	oidcProviders map[string]oidckit.RPConfig
 	solanaDomain  string // Domain for SIWS messages (optional, derived from request if empty)
+	langCfg       *LanguageConfig
 }
 
 // NewService constructs a core.Service and wraps it for HTTP mounting.
@@ -61,6 +62,11 @@ func (s *Service) WithEmailSender(es core.EmailSender) *Service {
 
 func (s *Service) WithSMSSender(sender core.SMSSender) *Service {
 	s.svc = s.svc.WithSMSSender(sender)
+	return s
+}
+
+func (s *Service) WithLanguageConfig(cfg LanguageConfig) *Service {
+	s.langCfg = &cfg
 	return s
 }
 
@@ -108,11 +114,13 @@ func (s *Service) GinRegisterOIDC(root gin.IRouter, site ...string) *Service {
 	if len(site) > 0 {
 		siteName = site[0]
 	}
-	root.GET("/auth/oidc/:provider/login", handlers.HandleOIDCLoginGET(oidcCfg, s.svc, rl, siteName))
-	root.GET("/auth/oidc/:provider/callback", handlers.HandleOIDCCallbackGET(oidcCfg, s.svc, nil, rl, siteName))
+	r := root.Group("")
+	r.Use(LanguageMiddleware(s.langCfg))
+	r.GET("/auth/oidc/:provider/login", handlers.HandleOIDCLoginGET(oidcCfg, s.svc, rl, siteName))
+	r.GET("/auth/oidc/:provider/callback", handlers.HandleOIDCCallbackGET(oidcCfg, s.svc, nil, rl, siteName))
 	if _, ok := providers["discord"]; ok {
-		root.GET("/auth/oauth/discord/login", handlers.HandleDiscordLoginGET(oidcCfg, s.svc, rl))
-		root.GET("/auth/oauth/discord/callback", handlers.HandleDiscordCallbackGET(oidcCfg, s.svc, rl, siteName))
+		r.GET("/auth/oauth/discord/login", handlers.HandleDiscordLoginGET(oidcCfg, s.svc, rl))
+		r.GET("/auth/oauth/discord/callback", handlers.HandleDiscordCallbackGET(oidcCfg, s.svc, rl, siteName))
 	}
 	return s
 }
@@ -122,6 +130,8 @@ func (s *Service) GinRegisterOIDC(root gin.IRouter, site ...string) *Service {
 func (s *Service) GinRegisterAPI(api gin.IRouter, site ...string) *Service {
 	rl := s.ensureLimiter()
 	auth := MiddlewareFromSVC(s)
+	r := api.Group("")
+	r.Use(LanguageMiddleware(s.langCfg))
 	if !core.IsDevEnvironment() {
 		mode := s.svc.EphemeralMode()
 		if mode != core.EphemeralRedis {
@@ -134,24 +144,26 @@ func (s *Service) GinRegisterAPI(api gin.IRouter, site ...string) *Service {
 		siteName = site[0]
 	}
 
-	api.POST("/auth/password/login", handlers.HandlePasswordLoginPOST(s.svc, rl, siteName))
+	r.POST("/auth/password/login", handlers.HandlePasswordLoginPOST(s.svc, rl, siteName))
 
 	// Unified registration (accepts email or phone in identifier field)
-	api.POST("/auth/register", handlers.HandleRegisterUnifiedPOST(s.svc, rl))
-	api.POST("/auth/register/resend-email", handlers.HandlePendingRegistrationResendPOST(s.svc, rl))
-	api.POST("/auth/register/resend-phone", handlers.HandlePhoneRegisterResendPOST(s.svc, rl))
+	r.POST("/auth/register", handlers.HandleRegisterUnifiedPOST(s.svc, rl))
+	r.POST("/auth/register/resend-email", handlers.HandlePendingRegistrationResendPOST(s.svc, rl))
+	r.POST("/auth/register/resend-phone", handlers.HandlePhoneRegisterResendPOST(s.svc, rl))
 
 	// Email-based password reset and verification
-	api.POST("/auth/password/reset/request", handlers.HandlePasswordResetRequestPOST(s.svc, rl))
-	api.POST("/auth/password/reset/confirm", handlers.HandlePasswordResetConfirmPOST(s.svc, rl))
-	api.POST("/auth/email/verify/request", handlers.HandleEmailVerifyRequestPOST(s.svc, rl))
-	api.POST("/auth/email/verify/confirm", handlers.HandleEmailVerifyConfirmPOST(s.svc, rl))
+	r.POST("/auth/password/reset/request", handlers.HandlePasswordResetRequestPOST(s.svc, rl))
+	r.POST("/auth/password/reset/confirm", handlers.HandlePasswordResetConfirmPOST(s.svc, rl))
+	r.POST("/auth/password/reset/confirm-link", handlers.HandlePasswordResetConfirmLinkPOST(s.svc, rl))
+	r.POST("/auth/email/verify/request", handlers.HandleEmailVerifyRequestPOST(s.svc, rl))
+	r.POST("/auth/email/verify/confirm", handlers.HandleEmailVerifyConfirmPOST(s.svc, rl))
+	r.POST("/auth/email/verify/confirm-link", handlers.HandleEmailVerifyConfirmLinkPOST(s.svc, rl))
 
 	// Phone-based password reset and verification
-	api.POST("/auth/phone/verify/request", handlers.HandlePhoneVerifyRequestPOST(s.svc, rl))
-	api.POST("/auth/phone/verify/confirm", handlers.HandlePhoneVerifyConfirmPOST(s.svc, rl))
-	api.POST("/auth/phone/password/reset/request", handlers.HandlePhonePasswordResetRequestPOST(s.svc, rl))
-	api.POST("/auth/phone/password/reset/confirm", handlers.HandlePhonePasswordResetConfirmPOST(s.svc, rl))
+	r.POST("/auth/phone/verify/request", handlers.HandlePhoneVerifyRequestPOST(s.svc, rl))
+	r.POST("/auth/phone/verify/confirm", handlers.HandlePhoneVerifyConfirmPOST(s.svc, rl))
+	r.POST("/auth/phone/password/reset/request", handlers.HandlePhonePasswordResetRequestPOST(s.svc, rl))
+	r.POST("/auth/phone/password/reset/confirm", handlers.HandlePhonePasswordResetConfirmPOST(s.svc, rl))
 
 	// Provider link start (OIDC)
 	providers := s.oidcProviders
@@ -161,50 +173,50 @@ func (s *Service) GinRegisterAPI(api gin.IRouter, site ...string) *Service {
 	mgr := oidckit.NewManagerFromMinimal(providers)
 	state := s.stateCache()
 	oidcCfg := handlers.OIDCConfig{Manager: mgr, StateCache: state}
-	api.POST("/auth/oidc/:provider/link/start", auth.Required(), handlers.HandleOIDCLinkStartPOST(oidcCfg, s.svc, rl))
+	r.POST("/auth/oidc/:provider/link/start", auth.Required(), handlers.HandleOIDCLinkStartPOST(oidcCfg, s.svc, rl))
 	// Discord link start (OAuth2)
 	if _, ok := providers["discord"]; ok {
-		api.POST("/auth/oauth/discord/link/start", auth.Required(), handlers.HandleDiscordLinkStartPOST(oidcCfg, s.svc, rl))
+		r.POST("/auth/oauth/discord/link/start", auth.Required(), handlers.HandleDiscordLinkStartPOST(oidcCfg, s.svc, rl))
 	}
 
 	// Sessions + logout
-	api.POST("/auth/token", handlers.HandleAuthTokenPOST(s.svc, rl))
-	api.POST("/auth/user/password", auth.Required(), handlers.HandleUserPasswordPOST(s.svc, rl))
+	r.POST("/auth/token", handlers.HandleAuthTokenPOST(s.svc, rl))
+	r.POST("/auth/user/password", auth.Required(), handlers.HandleUserPasswordPOST(s.svc, rl))
 
-	api.POST("/auth/sessions/current", handlers.HandleAuthSessionsCurrentPOST(s.svc, rl))
-	api.GET("/auth/user/sessions", auth.Required(), handlers.HandleUserSessionsGET(s.svc, rl))
-	api.DELETE("/auth/user/sessions/:id", auth.Required(), handlers.HandleUserSessionDELETE(s.svc, rl))
-	api.DELETE("/auth/user/sessions", auth.Required(), handlers.HandleUserSessionsDELETE(s.svc, rl))
+	r.POST("/auth/sessions/current", handlers.HandleAuthSessionsCurrentPOST(s.svc, rl))
+	r.GET("/auth/user/sessions", auth.Required(), handlers.HandleUserSessionsGET(s.svc, rl))
+	r.DELETE("/auth/user/sessions/:id", auth.Required(), handlers.HandleUserSessionDELETE(s.svc, rl))
+	r.DELETE("/auth/user/sessions", auth.Required(), handlers.HandleUserSessionsDELETE(s.svc, rl))
 
-	api.DELETE("/auth/logout", auth.Required(), handlers.HandleLogoutDELETE(s.svc, rl))
+	r.DELETE("/auth/logout", auth.Required(), handlers.HandleLogoutDELETE(s.svc, rl))
 
 	// User routes
-	api.GET("/auth/user/me", auth.Required(), LookupDBUser(s.svc.Postgres()), handlers.HandleUserMeGET(s.svc, rl))
-	api.PATCH("/auth/user/username", auth.Required(), handlers.HandleUserUsernamePATCH(s.svc, rl))
-	api.POST("/auth/user/email/change/request", auth.Required(), handlers.HandleUserEmailChangeRequestPOST(s.svc, rl))
-	api.POST("/auth/user/email/change/confirm", auth.Required(), handlers.HandleUserEmailChangeConfirmPOST(s.svc, rl))
-	api.POST("/auth/user/email/change/resend", auth.Required(), handlers.HandleUserEmailChangeResendPOST(s.svc, rl))
+	r.GET("/auth/user/me", auth.Required(), LookupDBUser(s.svc.Postgres()), handlers.HandleUserMeGET(s.svc, rl))
+	r.PATCH("/auth/user/username", auth.Required(), handlers.HandleUserUsernamePATCH(s.svc, rl))
+	r.POST("/auth/user/email/change/request", auth.Required(), handlers.HandleUserEmailChangeRequestPOST(s.svc, rl))
+	r.POST("/auth/user/email/change/confirm", auth.Required(), handlers.HandleUserEmailChangeConfirmPOST(s.svc, rl))
+	r.POST("/auth/user/email/change/resend", auth.Required(), handlers.HandleUserEmailChangeResendPOST(s.svc, rl))
 
 	// Phone number change endpoints
-	api.POST("/auth/user/phone/change/request", auth.Required(), handlers.HandleUserPhoneChangeRequestPOST(s.svc, rl))
-	api.POST("/auth/user/phone/change/confirm", auth.Required(), handlers.HandleUserPhoneChangeConfirmPOST(s.svc, rl))
-	api.POST("/auth/user/phone/change/resend", auth.Required(), handlers.HandleUserPhoneChangeResendPOST(s.svc, rl))
+	r.POST("/auth/user/phone/change/request", auth.Required(), handlers.HandleUserPhoneChangeRequestPOST(s.svc, rl))
+	r.POST("/auth/user/phone/change/confirm", auth.Required(), handlers.HandleUserPhoneChangeConfirmPOST(s.svc, rl))
+	r.POST("/auth/user/phone/change/resend", auth.Required(), handlers.HandleUserPhoneChangeResendPOST(s.svc, rl))
 
-	api.PATCH("/auth/user/biography", auth.Required(), handlers.HandleUserBiographyPATCH(s.svc))
-	api.DELETE("/auth/user", auth.Required(), handlers.HandleUserDeleteDELETE(s.svc, rl))
-	api.DELETE("/auth/user/providers/:provider", auth.Required(), handlers.HandleUserUnlinkProviderDELETE(s.svc, rl))
+	r.PATCH("/auth/user/biography", auth.Required(), handlers.HandleUserBiographyPATCH(s.svc))
+	r.DELETE("/auth/user", auth.Required(), handlers.HandleUserDeleteDELETE(s.svc, rl))
+	r.DELETE("/auth/user/providers/:provider", auth.Required(), handlers.HandleUserUnlinkProviderDELETE(s.svc, rl))
 
 	// Two-Factor Authentication routes
-	api.GET("/auth/user/2fa", auth.Required(), handlers.HandleUser2FAStatusGET(s.svc, rl))
+	r.GET("/auth/user/2fa", auth.Required(), handlers.HandleUser2FAStatusGET(s.svc, rl))
 
-	api.POST("/auth/user/2fa/start-phone", auth.Required(), handlers.HandleUser2FAStartPhonePOST(s.svc, rl))
-	api.POST("/auth/user/2fa/enable", auth.Required(), handlers.HandleUser2FAEnablePOST(s.svc, rl))
-	api.POST("/auth/user/2fa/disable", auth.Required(), handlers.HandleUser2FADisablePOST(s.svc, rl))
-	api.POST("/auth/user/2fa/regenerate-codes", auth.Required(), handlers.HandleUser2FARegenerateCodesPOST(s.svc, rl))
-	api.POST("/auth/2fa/verify", handlers.HandleUser2FAVerifyPOST(s.svc, rl, siteName)) // No auth required - this is during login
+	r.POST("/auth/user/2fa/start-phone", auth.Required(), handlers.HandleUser2FAStartPhonePOST(s.svc, rl))
+	r.POST("/auth/user/2fa/enable", auth.Required(), handlers.HandleUser2FAEnablePOST(s.svc, rl))
+	r.POST("/auth/user/2fa/disable", auth.Required(), handlers.HandleUser2FADisablePOST(s.svc, rl))
+	r.POST("/auth/user/2fa/regenerate-codes", auth.Required(), handlers.HandleUser2FARegenerateCodesPOST(s.svc, rl))
+	r.POST("/auth/2fa/verify", handlers.HandleUser2FAVerifyPOST(s.svc, rl, siteName)) // No auth required - this is during login
 
 	// Admin routes
-	admin := api.Group("/auth/admin").Use(auth.Required(), auth.RequireAdmin(s.svc.Postgres()))
+	admin := r.Group("/auth/admin").Use(auth.Required(), auth.RequireAdmin(s.svc.Postgres()))
 	admin.POST("/roles/grant", handlers.HandleAdminRolesGrantPOST(s.svc, rl))
 	admin.POST("/roles/revoke", handlers.HandleAdminRolesRevokePOST(s.svc, rl))
 	admin.GET("/users", handlers.HandleAdminUsersListGET(s.svc, rl))
@@ -217,19 +229,19 @@ func (s *Service) GinRegisterAPI(api gin.IRouter, site ...string) *Service {
 
 	admin.POST("/users/toggle-active", handlers.HandleAdminUserToggleActivePOST(s.svc, rl))
 
-		admin.DELETE("/users/:user_id", handlers.HandleAdminUserDeleteDELETE(s.svc, rl))
-		admin.POST("/users/:user_id/restore", handlers.HandleAdminUserRestorePOST(s.svc, rl))
-		admin.GET("/users/deleted", handlers.HandleAdminDeletedUsersListGET(s.svc))
-		admin.GET("/users/:user_id/signins", handlers.HandleAdminUserSigninsGET(s.svc, rl))
+	admin.DELETE("/users/:user_id", handlers.HandleAdminUserDeleteDELETE(s.svc, rl))
+	admin.POST("/users/:user_id/restore", handlers.HandleAdminUserRestorePOST(s.svc, rl))
+	admin.GET("/users/deleted", handlers.HandleAdminDeletedUsersListGET(s.svc))
+	admin.GET("/users/:user_id/signins", handlers.HandleAdminUserSigninsGET(s.svc, rl))
 
 	// Solana SIWS authentication routes
 	siwsCfg := handlers.SIWSConfig{
 		Cache:  s.siwsCache(),
 		Domain: s.solanaDomain,
 	}
-	api.POST("/auth/solana/challenge", handlers.HandleSolanaChallengePost(siwsCfg, s.svc, rl))
-	api.POST("/auth/solana/login", handlers.HandleSolanaLoginPost(siwsCfg, s.svc, rl))
-	api.POST("/auth/solana/link", auth.Required(), handlers.HandleSolanaLinkPost(siwsCfg, s.svc, rl))
+	r.POST("/auth/solana/challenge", handlers.HandleSolanaChallengePost(siwsCfg, s.svc, rl))
+	r.POST("/auth/solana/login", handlers.HandleSolanaLoginPost(siwsCfg, s.svc, rl))
+	r.POST("/auth/solana/link", auth.Required(), handlers.HandleSolanaLinkPost(siwsCfg, s.svc, rl))
 
 	return s
 }

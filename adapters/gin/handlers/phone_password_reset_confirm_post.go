@@ -14,8 +14,8 @@ import (
 // HandlePhonePasswordResetConfirmPOST handles POST /auth/phone/password/reset/confirm
 func HandlePhonePasswordResetConfirmPOST(svc core.Provider, rl ginutil.RateLimiter) gin.HandlerFunc {
 	type confirmReq struct {
-		PhoneNumber string `json:"phone_number"`
-		Code        string `json:"code"`
+		PhoneNumber string `json:"phone_number"` // legacy; no longer required
+		Code        string `json:"code"`         // token from reset link (legacy field name)
 		NewPassword string `json:"new_password"`
 	}
 	return func(c *gin.Context) {
@@ -31,21 +31,17 @@ func HandlePhonePasswordResetConfirmPOST(svc core.Provider, rl ginutil.RateLimit
 		}
 
 		phone := strings.TrimSpace(req.PhoneNumber)
-		// Normalize code to uppercase (codes are case-insensitive alphanumeric)
-		code := strings.ToUpper(strings.TrimSpace(req.Code))
+		// Token is case-sensitive; do NOT normalize.
+		code := strings.TrimSpace(req.Code)
 		newPass := req.NewPassword
 
-		// Validate phone format
-		phoneRegex := regexp.MustCompile(`^\+[1-9]\d{1,14}$`)
-		if !phoneRegex.MatchString(phone) {
-			ginutil.BadRequest(c, "invalid_phone_number")
-			return
-		}
-
-		// Validate code format (6 alphanumeric characters)
-		if len(code) != 6 {
-			ginutil.BadRequest(c, "invalid_code")
-			return
+		// Legacy: if phone provided, validate format. Token-based reset does not require phone.
+		if phone != "" {
+			phoneRegex := regexp.MustCompile(`^\+[1-9]\d{1,14}$`)
+			if !phoneRegex.MatchString(phone) {
+				ginutil.BadRequest(c, "invalid_phone_number")
+				return
+			}
 		}
 
 		// Validate password
@@ -54,10 +50,10 @@ func HandlePhonePasswordResetConfirmPOST(svc core.Provider, rl ginutil.RateLimit
 			return
 		}
 
-		// Verify code and reset password
-		userID, err := svc.ConfirmPhonePasswordReset(c.Request.Context(), phone, code, newPass)
+		// Verify token and reset password
+		userID, err := svc.ConfirmPasswordReset(c.Request.Context(), code, newPass)
 		if err != nil {
-			ginutil.BadRequest(c, "invalid_or_expired_code")
+			ginutil.BadRequest(c, "invalid_or_expired_token")
 			return
 		}
 

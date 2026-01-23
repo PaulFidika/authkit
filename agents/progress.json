@@ -163,30 +163,30 @@
       "description": "Make AuthKit language-aware for user-facing communications (email + SMS) by detecting request language and propagating it to the host-provided sender interfaces via `context.Context`.\n\nWhy:\n- Host apps (`~/doujins`, `~/hentai0`) render the email/SMS bodies, but need to know what language-site the user is on at the moment an auth message is sent (signup/login/reset).\n- Some auth flows run before a user profile exists (signup verification), so there is no reliable user_id to look up preferences. Request language is the best signal.\n\nDesign:\n- AuthKit should not depend on host-specific user context types.\n- Introduce an AuthKit-owned context key + helpers to store language in `ctx`.\n- Ensure all calls into EmailSender/SmsSender use the inbound request ctx (or a derived ctx that preserves values), not `context.Background()`.\n\nNotes:\n- This should apply to both API routes and any root/browser flows AuthKit registers.\n- The language source should be configurable but default to: query param `lang` > cookie > `Accept-Language` > default.\n",
       "tasks": [
         "=== SHARED LANGUAGE CONTRACT (ALIGN WITH DOUJINS + HENTAI0) ===",
-        "[ ] Define and document a single precedence order for request language: `?lang` query param > `/:lang/` path prefix > `lang` cookie > `Accept-Language` header > default",
-        "[ ] Add AuthKit `LanguageConfig` (supported + default + cookie/query knobs) passed by the host app; validate and reject/ignore unsupported codes",
-        "[ ] Default behavior when config not provided: accept only basic `^[a-z]{2}$` languages, default to `en`",
+        "[x] Define and document a single precedence order for request language: `?lang` query param > `/:lang/` path prefix > `lang` cookie > `Accept-Language` header > default",
+        "[x] Add AuthKit `LanguageConfig` (supported + default + cookie/query knobs) passed by the host app; validate and reject/ignore unsupported codes",
+        "[x] Default behavior when config not provided: accept only basic `^[a-z]{2}$` languages, default to `en`",
         "",
-        "[ ] Add `lang` context helpers: `WithLanguage(ctx, lang)` and `LanguageFromContext(ctx)`",
-        "[ ] Add middleware/hook in the Gin adapter to detect language (per the shared contract) and attach it to ctx for every AuthKit request",
-        "[ ] Ensure AuthKit handlers/services propagate the inbound request ctx through to sender calls (no Background ctx)",
-        "[ ] Docs: sender implementations can read language from ctx and choose localized templates",
-        "[ ] Tests: language detection + ctx propagation into a fake sender for email + sms",
-        "[ ] Tests: ensure `LanguageConfig.Supported` is enforced for query/path/cookie/Accept-Language"
+        "[x] Add `lang` context helpers: `WithLanguage(ctx, lang)` and `LanguageFromContext(ctx)`",
+        "[x] Add middleware/hook in the Gin adapter to detect language (per the shared contract) and attach it to ctx for every AuthKit request",
+        "[x] Ensure AuthKit handlers/services propagate the inbound request ctx through to sender calls (no Background ctx)",
+        "[x] Docs: sender implementations can read language from ctx and choose localized templates",
+        "[x] Tests: language detection + ctx propagation into a fake sender for email + sms",
+        "[x] Tests: ensure `LanguageConfig.Supported` is enforced for query/path/cookie/Accept-Language"
       ],
-      "completed": false
+      "completed": true
     },
     {
       "name": "Decouple request language from UserContext (context key)",
       "id_number": 12,
       "description": "Ensure AuthKit stores request language as request metadata under a dedicated `context.Context` key (AuthKit-owned), not embedded inside any user identity context struct.\n\nWhy:\n- Request language is not user identity.\n- Some flows do not have a user record yet (signup verification), but are still language-scoped.\n- Keeps AuthKit portable: host apps can read language from ctx in senders without coupling to host-specific `UserContext` layouts.\n\nNon-goals:\n- Making language selection configurable per-app (beyond supported/default validation).\n- Translating AuthKit error messages (this issue is about propagation to senders).\n\nRelationship to issue #11:\n- Issue #11 adds language detection + propagation to senders.\n- This issue enforces the storage pattern: language lives at a dedicated context key (not nested under user ctx).",
       "tasks": [
-        "[ ] Add an AuthKit-owned context key for request language (can reuse the `lang` helpers from issue #11)",
-        "[ ] Ensure all sender invocations rely on `lang.LanguageFromContext(ctx)` (not user ctx structs) for language selection",
-        "[ ] Document the pattern for host apps: sender implementations should read request language from ctx and fall back to defaults",
-        "[ ] Add tests that assert language is present on ctx in both authenticated and unauthenticated auth flows"
+        "[x] Add an AuthKit-owned context key for request language (can reuse the `lang` helpers from issue #11)",
+        "[x] Ensure all sender invocations rely on `lang.LanguageFromContext(ctx)` (not user ctx structs) for language selection",
+        "[x] Document the pattern for host apps: sender implementations should read request language from ctx and fall back to defaults",
+        "[x] Add tests that assert language is present on ctx in both authenticated and unauthenticated auth flows"
       ],
-      "completed": false
+      "completed": true
     }
   ],
   "completed_features": [

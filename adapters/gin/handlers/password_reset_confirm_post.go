@@ -13,9 +13,9 @@ import (
 
 func HandlePasswordResetConfirmPOST(svc core.Provider, rl ginutil.RateLimiter) gin.HandlerFunc {
 	type resetConfirmReq struct {
-		Code        string `json:"code"`
+		Code        string `json:"code"` // token from reset link (legacy field name)
 		NewPassword string `json:"new_password"`
-		Identifier  string `json:"identifier"` // email or phone number (required for phone resets)
+		Identifier  string `json:"identifier"` // email or phone number (optional; legacy)
 	}
 	return func(c *gin.Context) {
 		if !ginutil.AllowNamed(c, rl, ginutil.RLPasswordResetConfirm) {
@@ -28,8 +28,8 @@ func HandlePasswordResetConfirmPOST(svc core.Provider, rl ginutil.RateLimiter) g
 			return
 		}
 
-		// Normalize code to uppercase (codes are case-insensitive)
-		code := strings.ToUpper(strings.TrimSpace(req.Code))
+		// Token is case-sensitive; do NOT normalize.
+		code := strings.TrimSpace(req.Code)
 		identifier := strings.TrimSpace(req.Identifier)
 
 		var userID string
@@ -50,7 +50,7 @@ func HandlePasswordResetConfirmPOST(svc core.Provider, rl ginutil.RateLimiter) g
 		}
 
 		if err != nil {
-			ginutil.BadRequest(c, "invalid_or_expired_code")
+			ginutil.BadRequest(c, "invalid_or_expired_token")
 			return
 		}
 

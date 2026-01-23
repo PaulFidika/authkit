@@ -68,6 +68,6 @@ func HandlePasswordResetRequestPOST(svc core.Provider, rl ginutil.RateLimiter) g
 			_ = svc.RequestPasswordReset(c.Request.Context(), identifier, 0)
 		}
 
-		c.JSON(http.StatusAccepted, gin.H{"ok": true, "message": "If this email or phone number is registered, a verification code will be sent."})
+		c.JSON(http.StatusAccepted, gin.H{"ok": true, "message": "If this email or phone number is registered, password reset instructions will be sent."})
 	}
 }

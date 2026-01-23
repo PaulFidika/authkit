@@ -10,17 +10,17 @@ import (
 )
 
 const (
-	keyPendingRegToken   = "auth:pending_reg:token:"
-	keyPendingRegEmail   = "auth:pending_reg:email:"
-	keyPendingRegUser    = "auth:pending_reg:user:"
-	keyPendingPhoneToken = "auth:pending_phone:token:"
-	keyPendingPhonePhone = "auth:pending_phone:phone:"
-	keyPendingPhoneUser  = "auth:pending_phone:user:"
-	keyPhoneVerify       = "auth:phone_verify:"
-	keyEmailVerifyToken  = "auth:email_verify:token:"
-	keyEmailVerifyUser   = "auth:email_verify:user:"
-	keyPasswordReset     = "auth:password_reset:token:"
-	keyTwoFactor         = "auth:2fa:code:"
+	keyPendingRegToken    = "auth:pending_reg:token:"
+	keyPendingRegEmail    = "auth:pending_reg:email:"
+	keyPendingRegUser     = "auth:pending_reg:user:"
+	keyPendingPhoneToken  = "auth:pending_phone:token:"
+	keyPendingPhonePhone  = "auth:pending_phone:phone:"
+	keyPendingPhoneUser   = "auth:pending_phone:user:"
+	keyPhoneVerify        = "auth:phone_verify:"
+	keyEmailVerifyToken   = "auth:email_verify:token:"
+	keyEmailVerifyUser    = "auth:email_verify:user:"
+	keyPasswordReset      = "auth:password_reset:token:"
+	keyTwoFactor          = "auth:2fa:code:"
 	keyTwoFactorChallenge = "auth:2fa:challenge:"
 )
 

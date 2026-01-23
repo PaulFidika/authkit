@@ -49,9 +49,10 @@ All endpoints are under `/api/v1/auth` unless otherwise noted.
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/auth/password/reset/request` | PUBLIC | Request password reset (email) |
-| POST | `/auth/password/reset/confirm` | PUBLIC | Confirm password reset |
+| POST | `/auth/password/reset/confirm` | PUBLIC | Confirm password reset (token from reset link; legacy field name is `code`) |
+| POST | `/auth/password/reset/confirm-link` | PUBLIC | Confirm password reset (expects `token`) |
 | POST | `/auth/phone/password/reset/request` | PUBLIC | Request password reset (phone) |
-| POST | `/auth/phone/password/reset/confirm` | PUBLIC | Confirm password reset (phone) |
+| POST | `/auth/phone/password/reset/confirm` | PUBLIC | Confirm password reset (token from reset link; legacy) |
 
 ---
 
@@ -61,6 +62,7 @@ All endpoints are under `/api/v1/auth` unless otherwise noted.
 |--------|------|------|-------------|
 | POST | `/auth/email/verify/request` | PUBLIC | Request email verification |
 | POST | `/auth/email/verify/confirm` | PUBLIC | Confirm email verification |
+| POST | `/auth/email/verify/confirm-link` | PUBLIC | Confirm email verification (expects `token`) |
 | POST | `/auth/phone/verify/request` | PUBLIC | Request phone verification (sends SMS) |
 | POST | `/auth/phone/verify/confirm` | PUBLIC | Confirm phone verification |
 

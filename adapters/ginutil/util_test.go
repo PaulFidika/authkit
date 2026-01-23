@@ -35,4 +35,3 @@ func TestOriginFromBaseURL(t *testing.T) {
 		}
 	})
 }
-

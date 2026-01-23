@@ -47,7 +47,7 @@ func HandlePhonePasswordResetRequestPOST(svc core.Provider, rl ginutil.RateLimit
 
 		c.JSON(http.StatusAccepted, gin.H{
 			"ok":      true,
-			"message": "If this phone number is registered, a verification code will be sent via SMS.",
+			"message": "If this phone number is registered, password reset instructions will be sent via SMS.",
 		})
 	}
 }

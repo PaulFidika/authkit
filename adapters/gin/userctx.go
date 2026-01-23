@@ -15,7 +15,6 @@ type UserContext struct {
 	Email           string  `json:"email"`
 	Username        *string `json:"username,omitempty"`
 	DiscordUsername *string `json:"discord_username,omitempty"`
-	Language        string  `json:"language"`
 
 	// Access / profile
 	Roles        []string `json:"roles,omitempty"`
@@ -41,14 +40,13 @@ func GetUserContext(c *gin.Context) (UserContext, bool) {
 }
 
 // BuildUserContext builds UserContext via a single joined query against Postgres.
-// Requires a verified user claim set by an auth gate; otherwise returns Language only.
+// Requires a verified user claim set by an auth gate.
 func BuildUserContext(c *gin.Context, pg *pgxpool.Pool) UserContext {
-	lang := parseAcceptLanguage(c.GetHeader("Accept-Language"))
 	cl, ok := ClaimsFromGin(c)
 	if !ok || cl.UserID == "" {
-		return UserContext{Language: lang}
+		return UserContext{}
 	}
-	uc := UserContext{UserID: cl.UserID, Language: lang}
+	uc := UserContext{UserID: cl.UserID}
 	if pg == nil {
 		return uc
 	}
@@ -122,10 +120,6 @@ func LookupDBUser(pg *pgxpool.Pool) gin.HandlerFunc {
 			c.Set("auth.discord_username", *uc.DiscordUsername)
 		}
 
-		if uc.Language != "" {
-			c.Set("auth.language", uc.Language)
-		}
-
 		c.Next()
 	}
 }
@@ -154,30 +148,4 @@ func hasString(arr []string, want string) bool {
 	return false
 }
 
-// parseAcceptLanguage extracts the primary language (e.g., "en" from "en-US").
-func parseAcceptLanguage(header string) string {
-	if header == "" {
-		return "en"
-	}
-	// Take the first comma-separated entry, then trim parameters
-	part := header
-	if i := strings.IndexByte(part, ','); i >= 0 {
-		part = part[:i]
-	}
-	if i := strings.IndexByte(part, ';'); i >= 0 {
-		part = part[:i]
-	}
-	part = strings.TrimSpace(part)
-	if part == "" {
-		return "en"
-	}
-	// Reduce region subtags to primary language
-	if i := strings.IndexByte(part, '-'); i >= 0 {
-		part = part[:i]
-	}
-	part = strings.ToLower(part)
-	if len(part) < 2 {
-		return "en"
-	}
-	return part
-}
+// Note: request language is stored on context.Context via authkit/lang.

@@ -1,6 +1,7 @@
 package authgin
 
 import (
+	authlang "github.com/PaulFidika/authkit/lang"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,6 +31,11 @@ type UserView struct {
 //  2. JWT claims only (from AuthRequired/AuthOptional) → Source: "claims"
 //  3. None (unauthenticated) → Source: "none"
 func CurrentUser(c *gin.Context) (UserView, bool) {
+	reqLang := "en"
+	if v, ok := authlang.LanguageFromContext(c.Request.Context()); ok {
+		reqLang = v
+	}
+
 	// Prefer enriched context if present
 	if uc, ok := GetUserContext(c); ok && uc.UserID != "" {
 		return UserView{
@@ -37,7 +43,7 @@ func CurrentUser(c *gin.Context) (UserView, bool) {
 			Email:           uc.Email,
 			Username:        nil,
 			DiscordUsername: uc.DiscordUsername,
-			Language:        uc.Language,
+			Language:        reqLang,
 			Roles:           uc.Roles,
 			Entitlements:    uc.Entitlements,
 			Source:          "userctx",
@@ -57,7 +63,7 @@ func CurrentUser(c *gin.Context) (UserView, bool) {
 			Email:           cl.Email,
 			Username:        nil,
 			DiscordUsername: du,
-			Language:        parseAcceptLanguage(c.GetHeader("Accept-Language")),
+			Language:        reqLang,
 			Roles:           cl.Roles,
 			Entitlements:    cl.Entitlements,
 			Source:          "claims",
@@ -66,7 +72,7 @@ func CurrentUser(c *gin.Context) (UserView, bool) {
 
 	// Unauthenticated
 	return UserView{
-		Language: parseAcceptLanguage(c.GetHeader("Accept-Language")),
+		Language: reqLang,
 		Source:   "none",
 	}, false
 }

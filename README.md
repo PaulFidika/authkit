@@ -78,6 +78,9 @@ Quick Start (Gin)
       //   - SendEmailVerificationCode(ctx, email, username, code) - no user exists yet
       //   - SendLoginCode(ctx, email, username, code) - 2FA login code, AuthKit looks up user data
       //   - SendWelcome(ctx, email, username) - AuthKit looks up user data
+      //
+      // Note: AuthKit attaches the request language to ctx for every authkit route. Sender implementations can read it via:
+      //   lang.LanguageFromContext(ctx)  // (string, bool)
       var emailSender core.EmailSender = ... // your custom implementation
 
       // Optional: Twilio Verify SMS sender for phone-based auth

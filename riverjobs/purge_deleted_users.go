@@ -77,4 +77,3 @@ func (w *PurgeDeletedUsersWorker) Work(ctx context.Context, job *river.Job[Purge
 	}
 	return nil
 }
-
