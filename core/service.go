@@ -325,6 +325,11 @@ func (s *Service) RequestPhoneChange(ctx context.Context, userID, newPhone strin
 		return err
 	}
 
+	// Temporarily set the new phone and mark unverified until confirmation.
+	if _, err := s.pg.Exec(ctx, `UPDATE profiles.users SET phone_number=$2, phone_verified=false, updated_at=NOW() WHERE id=$1`, userID, trimmed); err != nil {
+		return err
+	}
+
 	username := ""
 	if u.Username != nil {
 		username = *u.Username
@@ -352,9 +357,12 @@ func (s *Service) ConfirmPhoneChange(ctx context.Context, userID, phone, code st
 	// Use consumePhoneVerification to validate and consume the code, keyed by userID
 	hash := sha256Hex(code)
 	if s.useEphemeralStore() {
-		_, err := s.consumePhoneVerification(ctx, "change_phone", phone, hash)
+		verifiedUserID, err := s.consumePhoneVerification(ctx, "change_phone", phone, hash)
 		if err != nil {
 			return jwt.ErrTokenUnverifiable
+		}
+		if verifiedUserID != userID {
+			return jwt.ErrTokenInvalidClaims
 		}
 	} else {
 		return jwt.ErrTokenUnverifiable
@@ -366,13 +374,12 @@ func (s *Service) ConfirmPhoneChange(ctx context.Context, userID, phone, code st
 		return errOrUnauthorized(err)
 	}
 
-	// Check if the phone is different from current phone (it's a change)
+	// If the phone matches the pending value, just verify it.
 	if u.PhoneNumber != nil && strings.EqualFold(*u.PhoneNumber, phone) {
-		// Same phone - just verify it
 		return s.setPhoneVerified(ctx, userID, true)
 	}
 
-	// Different phone - this is a phone change request
+	// Otherwise, set and verify (should be rare if pending update already applied).
 	_, err = s.pg.Exec(ctx, `UPDATE profiles.users SET phone_number=$2, phone_verified=true, updated_at=NOW() WHERE id=$1`, userID, phone)
 	if err != nil {
 		return err
@@ -392,8 +399,8 @@ func (s *Service) ResendPhoneChangeCode(ctx context.Context, userID, phone strin
 		return fmt.Errorf("user not found")
 	}
 
-	// Check if pending phone is different from current (it's a change request, not just verification)
-	if u.PhoneNumber != nil && strings.EqualFold(*u.PhoneNumber, phone) {
+	// Pending change exists only if the user's phone matches and is unverified.
+	if u.PhoneNumber == nil || !strings.EqualFold(*u.PhoneNumber, phone) || u.PhoneVerified {
 		return fmt.Errorf("no pending phone change found")
 	}
 
