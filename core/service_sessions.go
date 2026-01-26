@@ -115,6 +115,9 @@ func (s *Service) ExchangeRefreshToken(ctx context.Context, refreshToken string,
 	if err != nil {
 		return "", time.Time{}, "", err
 	}
+
+	ctx = context.WithValue(ctx, "login_success", true)
+
 	// Best-effort: record an auth access event (refresh)
 	if s.authlog != nil {
 		ipStr := (*string)(nil)
