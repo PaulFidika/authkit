@@ -180,7 +180,7 @@ func (s *Service) GinRegisterAPI(api gin.IRouter, site ...string) *Service {
 	}
 
 	// Sessions + logout
-	r.POST("/auth/token", handlers.HandleAuthTokenPOST(s.svc, rl, siteName))
+	r.POST("/auth/token", handlers.HandleAuthTokenPOST(s.svc, rl))
 	r.POST("/auth/user/password", auth.Required(), handlers.HandleUserPasswordPOST(s.svc, rl))
 
 	r.POST("/auth/sessions/current", handlers.HandleAuthSessionsCurrentPOST(s.svc, rl))

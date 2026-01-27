@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -13,14 +12,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func HandleAuthTokenPOST(svc core.Provider, rl ginutil.RateLimiter, siteName string) gin.HandlerFunc {
+func HandleAuthTokenPOST(svc core.Provider, rl ginutil.RateLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !ginutil.AllowNamed(c, rl, ginutil.RLAuthToken) {
 			ginutil.TooMany(c)
 			return
 		}
-
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "site", siteName))
 
 		var body struct {
 			GrantType    string `json:"grant_type"`
