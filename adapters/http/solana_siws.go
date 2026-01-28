@@ -65,7 +65,11 @@ func (s *Service) handleSolanaChallengePOST(w http.ResponseWriter, r *http.Reque
 		serverErr(w, "challenge_failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, input)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"nonce":     input.Nonce,
+		"issued_at": input.IssuedAt,
+		"message":   siws.ConstructMessage(input),
+	})
 }
 
 func (s *Service) handleSolanaLoginPOST(w http.ResponseWriter, r *http.Request) {

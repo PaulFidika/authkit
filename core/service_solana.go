@@ -3,17 +3,39 @@ package core
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/PaulFidika/authkit/siws"
 )
 
-// SolanaIssuer is the issuer string used for Solana wallet authentication.
-const SolanaIssuer = "solana:mainnet"
-
 // SolanaProviderSlug is the provider slug used for Solana wallets.
 const SolanaProviderSlug = "solana"
+
+func solanaChainID() string {
+	network := strings.ToLower(strings.TrimSpace(os.Getenv("SOLANA_NETWORK")))
+	if network != "" {
+		switch network {
+		case "mainnet", "mainnet-beta":
+			return "mainnet"
+		case "testnet":
+			return "testnet"
+		case "devnet":
+			return "devnet"
+		default:
+			return network
+		}
+	}
+	if IsDevEnvironment() {
+		return "testnet"
+	}
+	return "mainnet"
+}
+
+func solanaIssuer() string {
+	return "solana:" + solanaChainID()
+}
 
 // GenerateSIWSChallenge creates a new SIWS challenge for the given address.
 // The challenge is stored in the cache and must be verified within 15 minutes.
@@ -24,7 +46,9 @@ func (s *Service) GenerateSIWSChallenge(ctx context.Context, cache siws.Challeng
 	}
 
 	// Create the sign-in input with defaults
-	opts := []siws.InputOption{}
+	opts := []siws.InputOption{
+		siws.WithChainID(solanaChainID()),
+	}
 	if s.opts.BaseURL != "" {
 		opts = append(opts, siws.WithURI(s.opts.BaseURL))
 	}
@@ -92,7 +116,7 @@ func (s *Service) VerifySIWSAndLogin(ctx context.Context, cache siws.ChallengeCa
 	}
 
 	// Check if wallet is already linked to a user
-	existingUserID, _, err := s.GetProviderLinkByIssuer(ctx, SolanaIssuer, output.Account.Address)
+	existingUserID, _, err := s.GetProviderLinkByIssuer(ctx, solanaIssuer(), output.Account.Address)
 	if err == nil && existingUserID != "" {
 		// Existing user - login
 		userID = existingUserID
@@ -115,7 +139,7 @@ func (s *Service) VerifySIWSAndLogin(ctx context.Context, cache siws.ChallengeCa
 		created = true
 
 		// Link wallet to user
-		if err := s.LinkProviderByIssuer(ctx, userID, SolanaIssuer, SolanaProviderSlug, output.Account.Address, nil); err != nil {
+		if err := s.LinkProviderByIssuer(ctx, userID, solanaIssuer(), SolanaProviderSlug, output.Account.Address, nil); err != nil {
 			return "", time.Time{}, "", "", false, fmt.Errorf("failed to link wallet: %w", err)
 		}
 	}
@@ -188,7 +212,7 @@ func (s *Service) LinkSolanaWallet(ctx context.Context, cache siws.ChallengeCach
 	}
 
 	// Check if wallet is already linked to another user
-	existingUserID, _, err := s.GetProviderLinkByIssuer(ctx, SolanaIssuer, output.Account.Address)
+	existingUserID, _, err := s.GetProviderLinkByIssuer(ctx, solanaIssuer(), output.Account.Address)
 	if err == nil && existingUserID != "" {
 		if existingUserID == userID {
 			// Already linked to this user - success (no-op)
@@ -198,7 +222,7 @@ func (s *Service) LinkSolanaWallet(ctx context.Context, cache siws.ChallengeCach
 	}
 
 	// Link wallet to user
-	return s.LinkProviderByIssuer(ctx, userID, SolanaIssuer, SolanaProviderSlug, output.Account.Address, nil)
+	return s.LinkProviderByIssuer(ctx, userID, solanaIssuer(), SolanaProviderSlug, output.Account.Address, nil)
 }
 
 // GetUserBySolanaAddress looks up a user by their Solana wallet address.
@@ -207,7 +231,7 @@ func (s *Service) GetUserBySolanaAddress(ctx context.Context, address string) (*
 		return nil, nil
 	}
 
-	userID, _, err := s.GetProviderLinkByIssuer(ctx, SolanaIssuer, address)
+	userID, _, err := s.GetProviderLinkByIssuer(ctx, solanaIssuer(), address)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +252,7 @@ func (s *Service) GetSolanaAddress(ctx context.Context, userID string) (string, 
 	err := s.pg.QueryRow(ctx, `
 		SELECT subject FROM profiles.user_providers
 		WHERE user_id = $1 AND issuer = $2
-	`, userID, SolanaIssuer).Scan(&address)
+	`, userID, solanaIssuer()).Scan(&address)
 
 	if err != nil {
 		return "", nil // No wallet linked
