@@ -119,7 +119,7 @@ func (s *Service) handleUser2FAEnablePOST(w http.ResponseWriter, r *http.Request
 
 		valid, err := s.svc.VerifyPhone2FASetupCode(r.Context(), claims.UserID, *req.PhoneNumber, req.Code)
 		if err != nil || !valid {
-			unauthorized(w, "invalid_code")
+			badRequest(w, "invalid_code")
 			return
 		}
 	}
