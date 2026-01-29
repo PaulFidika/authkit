@@ -791,6 +791,7 @@ func (s *Service) ConfirmPasswordReset(ctx context.Context, token, newPassword s
 	}
 	// Revoke all sessions to invalidate any potentially compromised refresh tokens.
 	_ = s.RevokeAllSessions(ctx, rt.UserID, nil)
+	s.LogPasswordChanged(ctx, rt.UserID, "", nil, nil)
 
 	return rt.UserID, nil
 }
