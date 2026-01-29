@@ -5,9 +5,9 @@ import (
 	"net"
 	"time"
 
-	jwtkit "github.com/PaulFidika/authkit/jwt"
-	"github.com/PaulFidika/authkit/siws"
 	jwt "github.com/golang-jwt/jwt/v5"
+	jwtkit "github.com/open-rails/authkit/jwt"
+	"github.com/open-rails/authkit/siws"
 )
 
 // Verifier is the minimal surface needed to validate JWT access tokens.

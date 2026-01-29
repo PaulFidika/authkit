@@ -270,7 +270,7 @@
     {
       "name": "Drop Gin adapter + ginutil (breaking): rely fully on net/http routing",
       "id_number": 17,
-      "description": "AuthKit now has a full `net/http` adapter (`adapters/http`, package `authhttp`). We want to remove all Gin-specific logic and dependencies from this repo and rely exclusively on the new router/handler implementation.\n\nThis is a deliberate breaking change: downstream projects that import `github.com/PaulFidika/authkit/adapters/gin` or `adapters/ginutil` will need to migrate to `adapters/http`.\n\nNon-goals:\n- Backwards compatibility for Gin hosts.\n- Shim layers that keep Gin working.\n\nSuccess criteria:\n- No Gin dependency in AuthKit.\n- `go test ./...` passes.\n- README/docs show only `authhttp` mounting.",
+      "description": "AuthKit now has a full `net/http` adapter (`adapters/http`, package `authhttp`). We want to remove all Gin-specific logic and dependencies from this repo and rely exclusively on the new router/handler implementation.\n\nThis is a deliberate breaking change: downstream projects that import `github.com/open-rails/authkit/adapters/gin` or `adapters/ginutil` will need to migrate to `adapters/http`.\n\nNon-goals:\n- Backwards compatibility for Gin hosts.\n- Shim layers that keep Gin working.\n\nSuccess criteria:\n- No Gin dependency in AuthKit.\n- `go test ./...` passes.\n- README/docs show only `authhttp` mounting.",
       "tasks": [
         "[x] Inventory all Gin usages in-repo (packages, tests, docs) and decide the deletion scope (`adapters/gin`, `adapters/ginutil`, any local helpers).",
         "[x] Remove Gin-specific packages (`adapters/gin`, `adapters/ginutil`) and any Gin-only helpers that are no longer used.",

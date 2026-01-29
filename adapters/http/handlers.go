@@ -3,7 +3,7 @@ package authhttp
 import (
 	"net/http"
 
-	core "github.com/PaulFidika/authkit/core"
+	core "github.com/open-rails/authkit/core"
 )
 
 // JWKSHandler returns a handler for GET /.well-known/jwks.json.

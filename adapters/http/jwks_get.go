@@ -3,8 +3,8 @@ package authhttp
 import (
 	"net/http"
 
-	core "github.com/PaulFidika/authkit/core"
-	jwtkit "github.com/PaulFidika/authkit/jwt"
+	core "github.com/open-rails/authkit/core"
+	jwtkit "github.com/open-rails/authkit/jwt"
 )
 
 // JWKSHandler serves the public JWKS document.

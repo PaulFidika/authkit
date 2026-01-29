@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	pwhash "github.com/PaulFidika/authkit/password"
+	pwhash "github.com/open-rails/authkit/password"
 )
 
 var reE164 = regexp.MustCompile(`^\+[1-9]\d{1,14}$`)

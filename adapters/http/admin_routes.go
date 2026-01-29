@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	core "github.com/PaulFidika/authkit/core"
-	pwhash "github.com/PaulFidika/authkit/password"
+	core "github.com/open-rails/authkit/core"
+	pwhash "github.com/open-rails/authkit/password"
 )
 
 type adminUsersListResponse struct {

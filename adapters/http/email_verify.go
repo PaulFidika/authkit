@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	core "github.com/PaulFidika/authkit/core"
+	core "github.com/open-rails/authkit/core"
 )
 
 func (s *Service) handleEmailVerifyRequestPOST(w http.ResponseWriter, r *http.Request) {

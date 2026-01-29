@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	core "github.com/PaulFidika/authkit/core"
-	jwtkit "github.com/PaulFidika/authkit/jwt"
 	jwt "github.com/golang-jwt/jwt/v5"
+	core "github.com/open-rails/authkit/core"
+	jwtkit "github.com/open-rails/authkit/jwt"
 	"github.com/stretchr/testify/require"
 )
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PaulFidika/authkit/siws"
+	"github.com/open-rails/authkit/siws"
 )
 
 // SolanaProviderSlug is the provider slug used for Solana wallets.

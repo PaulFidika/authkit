@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	core "github.com/PaulFidika/authkit/core"
 	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	core "github.com/open-rails/authkit/core"
 )
 
 // Required validates the Bearer token (JWT), enforces iss/aud/exp, and stores claims in request context.

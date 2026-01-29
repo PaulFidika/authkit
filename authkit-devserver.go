@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	authhttp "github.com/PaulFidika/authkit/adapters/http"
-	"github.com/PaulFidika/authkit/core"
-	jwtkit "github.com/PaulFidika/authkit/jwt"
-	pgmigrations "github.com/PaulFidika/authkit/migrations/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	authhttp "github.com/open-rails/authkit/adapters/http"
+	"github.com/open-rails/authkit/core"
+	jwtkit "github.com/open-rails/authkit/jwt"
+	pgmigrations "github.com/open-rails/authkit/migrations/postgres"
 )
 
 type config struct {

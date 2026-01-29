@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	memorystore "github.com/PaulFidika/authkit/storage/memory"
+	memorystore "github.com/open-rails/authkit/storage/memory"
 )
 
 func TestPendingRegistrationMemoryStore(t *testing.T) {

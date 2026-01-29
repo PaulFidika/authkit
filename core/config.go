@@ -3,8 +3,8 @@ package core
 import (
 	"time"
 
-	jwtkit "github.com/PaulFidika/authkit/jwt"
-	oidckit "github.com/PaulFidika/authkit/oidc"
+	jwtkit "github.com/open-rails/authkit/jwt"
+	oidckit "github.com/open-rails/authkit/oidc"
 )
 
 // Config mirrors the simplicity of go-pkgz/auth: provide issuer, durations, and keys.

@@ -3,8 +3,8 @@ package authhttp
 import (
 	"time"
 
-	memorylimiter "github.com/PaulFidika/authkit/ratelimit/memory"
-	redislimiter "github.com/PaulFidika/authkit/ratelimit/redis"
+	memorylimiter "github.com/open-rails/authkit/ratelimit/memory"
+	redislimiter "github.com/open-rails/authkit/ratelimit/redis"
 )
 
 // Limit configures a named rate limit bucket.

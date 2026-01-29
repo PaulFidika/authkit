@@ -3,7 +3,7 @@ package authhttp
 import (
 	"net/http"
 
-	oidckit "github.com/PaulFidika/authkit/oidc"
+	oidckit "github.com/open-rails/authkit/oidc"
 )
 
 // OIDCHandler returns a handler that serves browser redirect flows:

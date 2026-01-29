@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/PaulFidika/authkit/core"
+	"github.com/open-rails/authkit/core"
 	"github.com/riverqueue/river"
 )
 

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	core "github.com/PaulFidika/authkit/core"
-	oidckit "github.com/PaulFidika/authkit/oidc"
+	core "github.com/open-rails/authkit/core"
+	oidckit "github.com/open-rails/authkit/oidc"
 )
 
 func (s *Service) handleDiscordLoginGET(w http.ResponseWriter, r *http.Request) {

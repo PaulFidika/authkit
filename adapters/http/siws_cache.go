@@ -3,9 +3,9 @@ package authhttp
 import (
 	"time"
 
-	"github.com/PaulFidika/authkit/siws"
-	memorystore "github.com/PaulFidika/authkit/storage/memory"
-	redisstore "github.com/PaulFidika/authkit/storage/redis"
+	"github.com/open-rails/authkit/siws"
+	memorystore "github.com/open-rails/authkit/storage/memory"
+	redisstore "github.com/open-rails/authkit/storage/redis"
 )
 
 func (s *Service) siwsCache() siws.ChallengeCache {

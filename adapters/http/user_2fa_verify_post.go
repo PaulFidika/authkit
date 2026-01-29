@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	core "github.com/PaulFidika/authkit/core"
+	core "github.com/open-rails/authkit/core"
 )
 
 func (s *Service) handleUser2FAVerifyPOST(w http.ResponseWriter, r *http.Request) {

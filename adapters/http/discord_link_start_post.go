@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	oidckit "github.com/PaulFidika/authkit/oidc"
+	oidckit "github.com/open-rails/authkit/oidc"
 )
 
 func (s *Service) handleDiscordLinkStartPOST(w http.ResponseWriter, r *http.Request) {

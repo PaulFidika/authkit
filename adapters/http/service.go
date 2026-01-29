@@ -5,12 +5,12 @@ import (
 	"strings"
 	"time"
 
-	core "github.com/PaulFidika/authkit/core"
-	oidckit "github.com/PaulFidika/authkit/oidc"
-	memorylimiter "github.com/PaulFidika/authkit/ratelimit/memory"
-	memorystore "github.com/PaulFidika/authkit/storage/memory"
-	redisstore "github.com/PaulFidika/authkit/storage/redis"
 	"github.com/jackc/pgx/v5/pgxpool"
+	core "github.com/open-rails/authkit/core"
+	oidckit "github.com/open-rails/authkit/oidc"
+	memorylimiter "github.com/open-rails/authkit/ratelimit/memory"
+	memorystore "github.com/open-rails/authkit/storage/memory"
+	redisstore "github.com/open-rails/authkit/storage/redis"
 	"github.com/redis/go-redis/v9"
 )
 

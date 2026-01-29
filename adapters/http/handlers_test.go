@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	core "github.com/PaulFidika/authkit/core"
-	jwtkit "github.com/PaulFidika/authkit/jwt"
+	core "github.com/open-rails/authkit/core"
+	jwtkit "github.com/open-rails/authkit/jwt"
 	"github.com/stretchr/testify/require"
 )
 

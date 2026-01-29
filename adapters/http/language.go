@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	authlang "github.com/PaulFidika/authkit/lang"
+	authlang "github.com/open-rails/authkit/lang"
 )
 
 type LanguageConfig struct {

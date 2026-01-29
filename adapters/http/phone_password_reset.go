@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	pwhash "github.com/PaulFidika/authkit/password"
+	pwhash "github.com/open-rails/authkit/password"
 )
 
 func (s *Service) handlePhonePasswordResetRequestPOST(w http.ResponseWriter, r *http.Request) {

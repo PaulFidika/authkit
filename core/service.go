@@ -15,11 +15,11 @@ import (
 	"strings"
 	"time"
 
-	entpg "github.com/PaulFidika/authkit/entitlements"
-	jwtkit "github.com/PaulFidika/authkit/jwt"
-	"github.com/PaulFidika/authkit/password"
 	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	entpg "github.com/open-rails/authkit/entitlements"
+	jwtkit "github.com/open-rails/authkit/jwt"
+	"github.com/open-rails/authkit/password"
 )
 
 // Options configures issued tokens and identifiers.

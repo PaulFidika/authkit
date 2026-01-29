@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	oidckit "github.com/PaulFidika/authkit/oidc"
+	oidckit "github.com/open-rails/authkit/oidc"
 )
 
 // StateCache is an in-memory implementation of oidckit.StateCache with TTL.

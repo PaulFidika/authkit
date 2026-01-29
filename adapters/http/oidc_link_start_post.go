@@ -3,7 +3,7 @@ package authhttp
 import (
 	"net/http"
 
-	oidckit "github.com/PaulFidika/authkit/oidc"
+	oidckit "github.com/open-rails/authkit/oidc"
 )
 
 func (s *Service) oidcManager() *oidckit.Manager {

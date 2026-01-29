@@ -20,7 +20,7 @@ Packages
 
 Migrations
 - Postgres SQL migrations live in `migrations/postgres/` and are embedded via `go:embed`.
-- Import `github.com/PaulFidika/authkit/migrations/postgres` and register `Migrations` with your runner, or use `FS`.
+- Import `github.com/open-rails/authkit/migrations/postgres` and register `Migrations` with your runner, or use `FS`.
 
 ---
 
@@ -32,8 +32,8 @@ package main
 import (
   "net/http"
 
-  authhttp "github.com/PaulFidika/authkit/adapters/http"
-  core "github.com/PaulFidika/authkit/core"
+  authhttp "github.com/open-rails/authkit/adapters/http"
+  core "github.com/open-rails/authkit/core"
 )
 
 func main() {
@@ -84,7 +84,7 @@ import (
     "context"
     "time"
 
-    entpg "github.com/PaulFidika/authkit/entitlements"
+    entpg "github.com/open-rails/authkit/entitlements"
     "github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -478,8 +478,8 @@ SpaceX accepts access tokens from multiple issuers; both tesla.com and x.com.
   import (
     "encoding/json"
     "net/http"
-    core "github.com/PaulFidika/authkit/core"
-    authhttp "github.com/PaulFidika/authkit/adapters/http"
+    core "github.com/open-rails/authkit/core"
+    authhttp "github.com/open-rails/authkit/adapters/http"
     "time"
   )
 

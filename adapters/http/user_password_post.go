@@ -3,7 +3,7 @@ package authhttp
 import (
 	"net/http"
 
-	pwhash "github.com/PaulFidika/authkit/password"
+	pwhash "github.com/open-rails/authkit/password"
 )
 
 func (s *Service) handleUserPasswordPOST(w http.ResponseWriter, r *http.Request) {

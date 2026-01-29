@@ -21,8 +21,8 @@ import (
 	"sync"
 	"time"
 
-	jwtkit "github.com/PaulFidika/authkit/jwt"
 	jwt "github.com/golang-jwt/jwt/v5"
+	jwtkit "github.com/open-rails/authkit/jwt"
 )
 
 // TestIssuer provides a complete mock authentication setup for testing.

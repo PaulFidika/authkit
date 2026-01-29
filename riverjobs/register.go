@@ -3,7 +3,7 @@ package riverjobs
 import (
 	"fmt"
 
-	"github.com/PaulFidika/authkit/core"
+	"github.com/open-rails/authkit/core"
 	"github.com/riverqueue/river"
 	"github.com/robfig/cron/v3"
 )

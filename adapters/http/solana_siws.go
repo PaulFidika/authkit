@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	core "github.com/PaulFidika/authkit/core"
-	"github.com/PaulFidika/authkit/siws"
+	core "github.com/open-rails/authkit/core"
+	"github.com/open-rails/authkit/siws"
 )
 
 func (s *Service) handleSolanaChallengePOST(w http.ResponseWriter, r *http.Request) {

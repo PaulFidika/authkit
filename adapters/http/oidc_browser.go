@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	core "github.com/PaulFidika/authkit/core"
-	oidckit "github.com/PaulFidika/authkit/oidc"
 	jwt "github.com/golang-jwt/jwt/v5"
+	core "github.com/open-rails/authkit/core"
+	oidckit "github.com/open-rails/authkit/oidc"
 )
 
 func (s *Service) handleOIDCLoginGET(w http.ResponseWriter, r *http.Request) {

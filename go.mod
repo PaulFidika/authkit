@@ -1,4 +1,4 @@
-module github.com/PaulFidika/authkit
+module github.com/open-rails/authkit
 
 go 1.25.5
 
